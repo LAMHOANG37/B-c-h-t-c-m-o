@@ -129,8 +129,8 @@ CẤU TRÚC KỊCH BẢN BẮT BUỘC (Trình bày bằng Markdown chuyên nghi�
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_content}
             ],
-            temperature=0.6,
-            max_tokens=2048
+            temperature=0.7,
+            max_tokens=4096
         )
 
         script_markdown = strip_think_tags(llm_res.get("content", "# Kịch bản video vũ trụ"))

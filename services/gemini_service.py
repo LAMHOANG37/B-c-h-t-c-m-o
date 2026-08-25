@@ -62,7 +62,7 @@ class GeminiService:
 
             config = types.GenerateContentConfig(
                 temperature=temperature,
-                max_output_tokens=max_tokens,
+                max_output_tokens=max(max_tokens, 3000),
                 system_instruction=system_instruction.strip() if system_instruction else None
             )
 
