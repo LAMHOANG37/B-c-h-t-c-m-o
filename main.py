@@ -320,14 +320,18 @@ NHIỆM VỤ:
     )
     await asyncio.sleep(2)
 
+    news_name = news_bot.user.name if news_bot.user else "News Agent"
+    market_name = market_bot.user.name if market_bot.user else "Market Agent"
+    thumb_name = thumbnail_bot.user.name if thumbnail_bot.user else "Thumbnail Agent"
+
     # -------------------------------------------------------------
     # BƯỚC 2: NEWS AGENT QUÉT TIN TỨC & GỬI CHO MARKET AGENT
     # -------------------------------------------------------------
     news_prompt = f"""
-Bạn là AOV BOT D6 — News Agent trong team AI Niche {NICHE_TOPIC}.
+Bạn là {news_name} — News Agent trong team AI Niche {NICHE_TOPIC}.
 Chủ đề đang hội bàn: "{topic}".
-Nhiệm vụ: Đưa ra 2 phát hiện/sự kiện tin tức khoa học nóng nhất, đề xuất 1 góc nhìn mới lạ và tag hỏi Market Agent (@Bot đầu Cửa) xem góc này có tiềm năng breakout trên YouTube không.
-Giọng điệu: Hào hứng, sắc bén, xưng "em", gọi Market Agent là "anh Market". Ngắn gọn trong 2 đoạn.
+Nhiệm vụ: Đưa ra 2 phát hiện/sự kiện tin tức khoa học nóng nhất, đề xuất 1 góc nhìn mới lạ và tag hỏi Market Agent (@{market_name}) xem góc này có tiềm năng breakout trên YouTube không.
+Giọng điệu: Hào hứng, sắc bén, xưng "em", gọi Market Agent là "anh {market_name}". Ngắn gọn trong 2 đoạn.
 """
     news_res = await llm_client.chat_completion(
         messages=[{"role": "user", "content": news_prompt}],
@@ -340,18 +344,18 @@ Giọng điệu: Hào hứng, sắc bén, xưng "em", gọi Market Agent là "an
     if news_bot.is_ready():
         try:
             target_ch = news_bot.get_channel(channel.id) or await news_bot.fetch_channel(channel.id)
-            await target_ch.send(f"📰🔥 **[AOV BOT D6 - News Agent]**:\n{news_text}")
+            await target_ch.send(f"📰🔥 **[{news_name}]**:\n{news_text}")
         except Exception:
-            await channel.send(f"📰🔥 **[AOV BOT D6 - News Agent]**:\n{news_text}")
+            await channel.send(f"📰🔥 **[{news_name}]**:\n{news_text}")
     else:
-        await channel.send(f"📰🔥 **[AOV BOT D6 - News Agent]**:\n{news_text}")
+        await channel.send(f"📰🔥 **[{news_name}]**:\n{news_text}")
 
     chat_logger.log_chat(
         context_type="Channel" if not is_dm else "DM",
         channel_name=channel_display_name,
         user_id=str(initiator_user.id),
         user_name=initiator_user.name,
-        bot_name="AOV BOT D6",
+        bot_name=news_name,
         bot_role="News Agent",
         user_message="News Agent thảo luận đề xuất góc nhìn",
         bot_response=news_text
@@ -362,10 +366,10 @@ Giọng điệu: Hào hứng, sắc bén, xưng "em", gọi Market Agent là "an
     # BƯỚC 3: MARKET AGENT BÓC TÁCH SỐ LIỆU YOUTUBE & GÓP Ý THUMBNAIL
     # -------------------------------------------------------------
     market_prompt = f"""
-Bạn là Bot đầu Cửa — Market Agent trong team AI Niche {NICHE_TOPIC}.
+Bạn là {market_name} — Market Agent trong team AI Niche {NICHE_TOPIC}.
 News Agent vừa đưa ra đề xuất: "{news_text[:200]}".
-Nhiệm vụ: Phân tích số liệu YouTube (tỷ lệ view/sub của các video cùng chủ đề), chỉ ra khoảng trống nội dung và gợi ý 1 hook 3s giật gân, sau đó tag hỏi Thumbnail Agent (@Bot Huy ngu nhất bầy) xem ý tưởng visual thế nào.
-Giọng điệu: Thực chiến, chuyên môn số liệu, xưng "em", gọi Thumbnail Agent là "anh Thumbnail". Ngắn gọn trong 2 đoạn.
+Nhiệm vụ: Phân tích số liệu YouTube (tỷ lệ view/sub của các video cùng chủ đề), chỉ ra khoảng trống nội dung và gợi ý 1 hook 3s giật gân, sau đó tag hỏi Thumbnail Agent (@{thumb_name}) xem ý tưởng visual thế nào.
+Giọng điệu: Thực chiến, chuyên môn số liệu, xưng "em", gọi Thumbnail Agent là "anh {thumb_name}". Ngắn gọn trong 2 đoạn.
 """
     market_res = await llm_client.chat_completion(
         messages=[{"role": "user", "content": market_prompt}],
@@ -377,18 +381,18 @@ Giọng điệu: Thực chiến, chuyên môn số liệu, xưng "em", gọi Thu
     if market_bot.is_ready():
         try:
             target_ch = market_bot.get_channel(channel.id) or await market_bot.fetch_channel(channel.id)
-            await target_ch.send(f"📊🚀 **[Bot đầu Cửa - Market Agent]**:\n{market_text}")
+            await target_ch.send(f"📊🚀 **[{market_name}]**:\n{market_text}")
         except Exception:
-            await channel.send(f"📊🚀 **[Bot đầu Cửa - Market Agent]**:\n{market_text}")
+            await channel.send(f"📊🚀 **[{market_name}]**:\n{market_text}")
     else:
-        await channel.send(f"📊🚀 **[Bot đầu Cửa - Market Agent]**:\n{market_text}")
+        await channel.send(f"📊🚀 **[{market_name}]**:\n{market_text}")
 
     chat_logger.log_chat(
         context_type="Channel" if not is_dm else "DM",
         channel_name=channel_display_name,
         user_id=str(initiator_user.id),
         user_name=initiator_user.name,
-        bot_name="Bot đầu Cửa",
+        bot_name=market_name,
         bot_role="Market Agent",
         user_message="Market Agent phân tích số liệu YouTube",
         bot_response=market_text
@@ -399,11 +403,11 @@ Giọng điệu: Thực chiến, chuyên môn số liệu, xưng "em", gọi Thu
     # BƯỚC 4: THUMBNAIL AGENT CHỐT CONCEPT & TUYÊN BỐ THỐNG NHẤT
     # -------------------------------------------------------------
     thumb_prompt = f"""
-Bạn là Bot Huy ngu nhất bầy — Thumbnail Specialist trong team AI Niche {NICHE_TOPIC}.
+Bạn là {thumb_name} — Thumbnail Specialist trong team AI Niche {NICHE_TOPIC}.
 Market Agent vừa chốt góc tiếp cận: "{market_text[:200]}".
 Nhiệm vụ:
 1. Đưa ra 2 concept thiết kế Thumbnail CTR cao (Màu sắc tương phản, bố cục 1/3, Text < 4 từ giật tò mò).
-2. Tuyên bố: "3 anh em (News, Market, Thumbnail) đã HOÀN TOÀN THỐNG NHẤT Ý KIẾN!" và tag mời Anh Cả Orchestrator (@Bot Đầu Cứt (Bố)) vào duyệt chốt kế hoạch.
+2. Tuyên bố: "3 anh em (News, Market, Thumbnail) đã HOÀN TOÀN THỐNG NHẤT Ý KIẾN!" và tag mời Anh Cả Orchestrator (@{bot_name}) vào duyệt chốt kế hoạch.
 Giọng điệu: Sáng tạo, mắt nhìn nghệ thuật, nhiệt huyết. Ngắn gọn trong 2 đoạn.
 """
     thumb_res = await llm_client.chat_completion(
@@ -416,18 +420,18 @@ Giọng điệu: Sáng tạo, mắt nhìn nghệ thuật, nhiệt huyết. Ngắ
     if thumbnail_bot.is_ready():
         try:
             target_ch = thumbnail_bot.get_channel(channel.id) or await thumbnail_bot.fetch_channel(channel.id)
-            await target_ch.send(f"🎨✨ **[Bot Huy ngu nhất bầy - Thumbnail Agent]**:\n{thumb_text}")
+            await target_ch.send(f"🎨✨ **[{thumb_name}]**:\n{thumb_text}")
         except Exception:
-            await channel.send(f"🎨✨ **[Bot Huy ngu nhất bầy - Thumbnail Agent]**:\n{thumb_text}")
+            await channel.send(f"🎨✨ **[{thumb_name}]**:\n{thumb_text}")
     else:
-        await channel.send(f"🎨✨ **[Bot Huy ngu nhất bầy - Thumbnail Agent]**:\n{thumb_text}")
+        await channel.send(f"🎨✨ **[{thumb_name}]**:\n{thumb_text}")
 
     chat_logger.log_chat(
         context_type="Channel" if not is_dm else "DM",
         channel_name=channel_display_name,
         user_id=str(initiator_user.id),
         user_name=initiator_user.name,
-        bot_name="Bot Huy ngu nhất bầy",
+        bot_name=thumb_name,
         bot_role="Thumbnail Agent",
         user_message="Thumbnail Agent chốt concept CTR",
         bot_response=thumb_text
