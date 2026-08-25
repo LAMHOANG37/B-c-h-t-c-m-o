@@ -47,6 +47,7 @@ GROQ_VISION_MODEL = "qwen/qwen3.6-27b"
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 
 # YouTube Data API
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "").strip()
 
 # Embed Colors (Hex Int)
