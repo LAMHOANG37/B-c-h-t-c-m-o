@@ -482,14 +482,24 @@ async def execute_script_generation(initiator_user: discord.User, channel, topic
     """
     Thực thi tạo kịch bản chi tiết kèm prompt video AI dựa trên phân tích kênh hot & kênh đang lên.
     """
+    import re
     is_dm = isinstance(channel, discord.DMChannel) or (channel.guild is None)
     clean_topic = topic
-    for trigger in ["viết kịch bản", "viet kich ban", "lên kịch bản", "len kich ban", "kịch bản prompt", "kich ban prompt", "tạo kịch bản", "tao kich ban", "prompt làm theo", "prompt video", "làm theo kênh", "lam theo kenh"]:
-        clean_topic = clean_topic.replace(trigger, "").strip()
-    if not clean_topic:
-        clean_topic = f"{NICHE_TOPIC}: Bí ẩn khám phá mới"
+    triggers_to_remove = [
+        "vậy thì làm về chủ đề", "làm về chủ đề", "hãy tạo prompt dựng kịch bản", "dựng kịch bản", "làm video", "hình ảnh cho tôi",
+        "viết kịch bản", "viet kich ban", "lên kịch bản", "len kich ban", "kịch bản prompt", "kich ban prompt",
+        "tạo kịch bản", "tao kich ban", "prompt làm theo", "prompt video", "làm theo kênh", "lam theo kenh",
+        "tạo prompt", "tao prompt", "làm video", "lam video", "cho tôi", "hãy tạo", "làm về", "chủ đề", "kịch bản", "kich ban"
+    ]
+    for trigger in triggers_to_remove:
+        clean_topic = re.sub(re.escape(trigger), "", clean_topic, flags=re.IGNORECASE).strip()
+    clean_topic = re.sub(r"^[,.:;?! -]+", "", clean_topic).strip()
+    clean_topic = re.sub(r"[,.:;?! -]+$", "", clean_topic).strip()
 
-    loading_msg = await channel.send(f"📊🎬 **[Market Agent & Biên Kịch AI]**: Đang quét các kênh đang lên & kênh đang hot về **'{clean_topic}'** để bóc tách công thức và viết kịch bản kèm Prompt AI cho đại ca... ⏳")
+    if not clean_topic:
+        clean_topic = f"{NICHE_TOPIC}: Hiện tượng khoa học bí ẩn"
+
+    loading_msg = await channel.send(f"📊🎬 **[Market Agent & Biên Kịch AI]**: Đang quét thị trường & viết kịch bản 4 bước kèm Prompt AI cho chủ đề: **'{clean_topic}'**... ⏳")
 
     try:
         async with channel.typing():
@@ -500,14 +510,15 @@ async def execute_script_generation(initiator_user: discord.User, channel, topic
             
             script_file = discord.File(res["filepath"], filename=res["filename"])
             embed = discord.Embed(
-                title=f"🎬 KỊCH BẢN & BỘ PROMPT AI: {clean_topic[:45]}",
+                title=f"🎬 KỊCH BẢN 4 BƯỚC & PROMPT AI: {clean_topic[:45]}",
                 description=f"📐 **Định dạng:** `{res['format']}`\n"
                             f"📊 **Dữ liệu phân tích:** `{res['hot_videos_analyzed']}` video top views & `{res['breakout_videos_analyzed']}` video bứt phá\n\n"
-                            f"🎯 **Cấu trúc phân cảnh:**\n"
-                            f"• Hook 3s gây sốc + Mở đầu đặt vấn đề\n"
-                            f"• Số liệu bí ẩn + Cao trào & Lời kêu gọi CTA\n"
-                            f"• Bộ Prompt Midjourney/Flux & Runway từng cảnh\n\n"
-                            f"💡 *Toàn bộ kịch bản chi tiết + Lời thoại Voiceover + Prompt AI từng cảnh đã đính kèm bên dưới!*",
+                            f"🎯 **Cấu trúc 4 Bước Vàng:**\n"
+                            f"• 🌟 **Bước 1:** Hiện tượng đời sống quanh ta (Hook 10s)\n"
+                            f"• 🧪 **Bước 2:** Thử nghiệm / Thí nghiệm thực tế trực quan\n"
+                            f"• ⚡ **Bước 3:** Giải thích khoa học sâu + Dẫn chứng bài báo uy tín\n"
+                            f"• 💡 **Bước 4:** Bài học đời sống & Kêu gọi hành động CTA\n\n"
+                            f"💡 *File Kịch bản chi tiết + Lời thoại Voiceover + Prompt Runway/Midjourney từng cảnh đã đính kèm bên dưới!*",
                 color=COLOR_MARKET
             )
             embed.set_footer(text=f"Yêu cầu bởi {initiator_user.name} • File: {res['filename']}")
@@ -516,6 +527,16 @@ async def execute_script_generation(initiator_user: discord.User, channel, topic
                 await loading_msg.delete()
             except Exception:
                 pass
+
+            # Nếu yêu cầu có nhắc tới "hình ảnh" hoặc "vẽ ảnh", tự động xuất luôn 1 ảnh minh họa 4K
+            if any(w in topic.lower() for w in ["hình ảnh", "hinh anh", "vẽ ảnh", "ve anh", "ảnh", "anh"]):
+                await execute_image_generation(
+                    initiator_user=initiator_user,
+                    channel=channel,
+                    prompt_or_idea=clean_topic,
+                    style="3D Cinematic Masterpiece",
+                    aspect_ratio="16:9" if "16:9" in format_type else "9:16"
+                )
     except Exception as e:
         await channel.send(f"⚠️ Có lỗi trong quá trình tạo kịch bản: {e}")
 
@@ -669,9 +690,11 @@ async def on_message(message: discord.Message):
 
         # Kiểm tra nếu yêu cầu viết kịch bản kèm prompt video AI
         script_phrases = [
+            "kịch bản", "kich ban", "dựng kịch bản", "dung kich ban",
             "viết kịch bản", "viet kich ban", "lên kịch bản", "len kich ban",
             "kịch bản prompt", "kich ban prompt", "tạo kịch bản", "tao kich ban",
-            "prompt làm theo", "prompt video", "làm theo kênh", "lam theo kenh"
+            "prompt làm theo", "prompt video", "làm theo kênh", "lam theo kenh",
+            "tạo prompt", "tao prompt", "làm video", "lam video", "prompt dựng", "prompt dung"
         ]
         if any(p in user_text.lower() for p in script_phrases):
             fmt = "Video Dài (Ngang 16:9)" if ("dài" in user_text.lower() or "16:9" in user_text.lower() or "ngang" in user_text.lower()) else "Shorts 60s (Dọc 9:16)"

@@ -9,13 +9,15 @@ from config import GROQ_API_KEY, GROQ_TOOL_MODEL, GROQ_VISION_MODEL
 from services.quota_tracker import quota_tracker
 
 def strip_think_tags(text: str) -> str:
-    """Loại bỏ hoàn toàn các thẻ <think>...</think> sinh ra bởi reasoning model."""
+    """Loại bỏ thẻ <think>...</think> sinh ra bởi reasoning model nhưng vẫn bảo đảm không bị mất nội dung."""
     if not text:
         return ""
-    # Xử lý cả thẻ đóng mở hoàn chỉnh và trường hợp thẻ chưa đóng hết
-    cleaned = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
-    cleaned = re.sub(r"<think>.*", "", cleaned, flags=re.DOTALL)
-    return cleaned.strip()
+    # Xử lý thẻ đóng mở hoàn chỉnh
+    cleaned = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+    if not cleaned:
+        # Nếu mô hình chưa kịp đóng thẻ </think>, lấy nội dung sau thẻ mở
+        cleaned = re.sub(r"^<think>\s*", "", text, flags=re.DOTALL).strip()
+    return cleaned
 
 class GroqService:
     def __init__(self, api_key: Optional[str] = None):
