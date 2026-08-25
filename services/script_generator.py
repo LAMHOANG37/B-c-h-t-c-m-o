@@ -80,28 +80,28 @@ CẤU TRÚC KỊCH BẢN BẮT BUỘC (Trình bày bằng Markdown chuyên nghi�
 
 ---
 
-## 📝 KỊCH BẢN CHI TIẾT & BỘ PROMPT AI TỪNG PHÂN CẢNH
+## 📝 KỊCH BẢN CHI TIẾT THEO CÔNG THỨC 4 BƯỚC THỰC CHIẾN
 
-### 📍 PHÂN CẢNH 1: [0:00 - 0:05] | HOOK 3 GIÂY GÂY SỐC
-- 🗣️ **Lời thoại (Voiceover VN):** (Câu thoại mở màn đánh trúng tò mò cực độ)
-- 🎨 **Prompt Tạo Ảnh (Midjourney v6 / Flux):** `(Prompt tiếng Anh chi tiết, phong cách 8k hyperrealistic space astrophotography, dramatic lighting, cinematic --ar 16:9 hoặc 9:16)`
-- 🎬 **Prompt Tạo Video (Runway Gen-3 / Pika / Kling AI):** `(Prompt mô tả chuyển động camera, slow zoom, glowing accretion disk, cosmic dust drift)`
-- 🔊 **Âm thanh / SFX:** (Mô tả hiệu ứng âm thanh)
+### 📍 PHÂN CẢNH 1: [0:00 - 0:10] | 🌟 HIỆN TƯỢNG KỲ LẠ QUANH TA (Hook Gây Tò Mò)
+- 🗣️ **Lời thoại (Voiceover VN):** (Mô tả một hiện tượng đời sống quen thuộc nhưng kỳ lạ, kích thích sự tò mò ngay giây đầu)
+- 🎨 **Prompt Tạo Ảnh (Midjourney v6 / Flux):** `(Prompt tiếng Anh chi tiết, phong cách 8k hyperrealistic scientific illustration, dramatic cinematic lighting --ar 16:9 hoặc 9:16)`
+- 🎬 **Prompt Tạo Video (Runway Gen-3 / Pika / Kling AI):** `(Prompt chuyển động camera, slow motion, macro zoom cận cảnh hiện tượng)`
+- 🔊 **Âm thanh / SFX:** (Mô tả hiệu ứng âm thanh kích thích thính giác)
 
-### 📍 PHÂN CẢNH 2: [0:05 - 0:25] | NGHỊCH LÝ & DẪN DẮT
-- 🗣️ **Lời thoại (Voiceover VN):** ...
-- 🎨 **Prompt Tạo Ảnh (Midjourney / Flux):** ...
+### 📍 PHÂN CẢNH 2: [0:10 - 0:25] | 🧪 THỬ NGHIỆM THỰC TẾ (The Experiment / Test)
+- 🗣️ **Lời thoại (Voiceover VN):** (Thực hiện một thử nghiệm / thí nghiệm trực quan dễ hình dung để tái hiện hoặc kiểm chứng hiện tượng)
+- 🎨 **Prompt Tạo Ảnh (Midjourney / Flux):** `(Prompt hình ảnh thí nghiệm, mặt cắt 3D hoặc tương phản trước/sau)`
 - 🎬 **Prompt Tạo Video (Runway / Pika):** ...
 - 🔊 **Âm thanh / SFX:** ...
 
-### 📍 PHÂN CẢNH 3: [0:25 - 0:50] | MỞ KHÓA BÍ ẨN & SỐ LIỆU ĐỘT PHÁ
-- 🗣️ **Lời thoại (Voiceover VN):** ...
-- 🎨 **Prompt Tạo Ảnh (Midjourney / Flux):** ...
+### 📍 PHÂN CẢNH 3: [0:25 - 0:50] | ⚡ GIẢI THÍCH KHOA HỌC SÂU (The Science Behind It)
+- 🗣️ **Lời thoại (Voiceover VN):** (Giải thích bản chất vật lý, hóa học, sinh học bằng ngôn ngữ bình dân, dễ hiểu, dùng hình tượng so sánh)
+- 🎨 **Prompt Tạo Ảnh (Midjourney / Flux):** `(Prompt minh họa cơ chế vi mô, cấu trúc tế bào / phân tử / tia điện / áp suất)`
 - 🎬 **Prompt Tạo Video (Runway / Pika):** ...
 - 🔊 **Âm thanh / SFX:** ...
 
-### 📍 PHÂN CẢNH 4: [0:50 - 1:00] | ĐÚC KẾT BẤT NGỜ & KÊU GỌI HÀNH ĐỘNG (CTA)
-- 🗣️ **Lời thoại (Voiceover VN):** ...
+### 📍 PHÂN CẢNH 4: [0:50 - 1:00] | 💡 BÀI HỌC & ỨNG DỤNG ĐỜI SỐNG + KÊU GỌI (CTA)
+- 🗣️ **Lời thoại (Voiceover VN):** (Rút ra bài học thực tế trong cuộc sống hàng ngày hoặc ứng dụng khoa học hữu ích + câu hỏi tương tác)
 - 🎨 **Prompt Tạo Ảnh (Midjourney / Flux):** ...
 - 🎬 **Prompt Tạo Video (Runway / Pika):** ...
 - 🔊 **Âm thanh / SFX:** ...
