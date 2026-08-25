@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: ai4ai-control-hub
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -u main.py
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: PYTHON_VERSION
+        value: 3.11.9
