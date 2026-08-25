@@ -476,7 +476,30 @@ Giọng điệu: Quyết đoán, chuyên nghiệp, thông minh, xưng "em", gọ
         user_message=f"Phê duyệt kế hoạch: {topic}",
         bot_response=final_text
     )
-    print(f"[Multi-Agent Roundtable] [✅ HOÀN TẤT] Đã chốt kế hoạch thành công!\n", flush=True)
+    print(f"[Multi-Agent Roundtable] [✅ HOÀN TẤT] Đã chốt kế hoạch thành công! Đang tự động kích hoạt sản xuất kịch bản & vẽ ảnh 4K...\n", flush=True)
+
+    # -------------------------------------------------------------
+    # BƯỚC 6: TỰ ĐỘNG TRIỂN KHAI THỰC TẾ (VIẾT KỊCH BẢN + VẼ ẢNH 4K)
+    # -------------------------------------------------------------
+    await asyncio.sleep(1)
+    await channel.send(f"🚀 **[{bot_name} - Triển Khai Tác Chiến]**: Đã phê duyệt xong! Em lệnh cho **Market Agent** xuất bản kịch bản 4 bước và **Thumbnail Agent** vẽ ảnh minh họa 4K cho đại ca ngay bây giờ! ⚡")
+    
+    # 1. Tự động xuất kịch bản 4 bước
+    await execute_script_generation(
+        initiator_user=initiator_user,
+        channel=channel,
+        topic=topic,
+        format_type="Shorts 60s (Dọc 9:16)"
+    )
+
+    # 2. Tự động vẽ ảnh Thumbnail 4K
+    await execute_image_generation(
+        initiator_user=initiator_user,
+        channel=channel,
+        prompt_or_idea=topic,
+        style="3D Cinematic Masterpiece",
+        aspect_ratio="16:9"
+    )
 
 async def execute_script_generation(initiator_user: discord.User, channel, topic: str, format_type: str = "Shorts 60s (Dọc 9:16)"):
     """
