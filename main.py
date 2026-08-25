@@ -1367,7 +1367,21 @@ async def quota_command(interaction: discord.Interaction):
         f"• ⏰ **Reset tốc độ:** `{summary['llm_reset_requests']}`"
     )
     embed.add_field(name="🧠 Groq AI API (Rate Limits)", value=llm_text, inline=False)
-    embed.set_footer(text=f"Kiểm toán lúc {datetime.now().strftime('%H:%M:%S')} | Web Dashboard: http://localhost:5000")
+
+    # Google Gemini & Flow Studio
+    if summary.get('gemini_active'):
+        gemini_text = (
+            f"• **Model:** `Google Gemini 3.6 Flash & Flow Studio`\n"
+            f"• **Trạng thái:** 🟢 Đang Kết Nối\n"
+            f"• **Hạn mức ngày (RPD):** `{summary['gemini_remaining']:,}` / `{summary['gemini_daily_limit']:,}` RPD (**{summary['gemini_pct_remaining']}%**)\n"
+            f"• **Tốc độ xử lý (Latency):** `{summary['gemini_last_latency_ms']} ms` (TB: `{summary['gemini_avg_latency_ms']} ms`)\n"
+            f"• **Ảnh Flow đã xuất:** `{summary['gemini_flow_images_generated']}` ảnh 4K\n"
+            f"• **Tổng Gemini Calls:** `{summary['gemini_total_requests']}` calls\n"
+            f"• 🕒 **Dùng gần nhất:** `{summary['gemini_last_used']}`"
+        )
+        embed.add_field(name="🧬 Google Gemini & Flow Engine", value=gemini_text, inline=False)
+    
+    embed.set_footer(text=f"Kiểm toán lúc {datetime.now().strftime('%H:%M:%S')} | Web Dashboard: http://localhost:8080")
     await interaction.response.send_message(embed=embed)
 
 @monitor_bot.tree.command(name="quota_alert_test", description="[Monitor Bot] Kiểm tra mẫu thông báo cảnh báo khi Quota xuống dưới 20%")
