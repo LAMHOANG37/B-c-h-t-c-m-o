@@ -1,7 +1,9 @@
 import os
+import sys
 import aiohttp
 import urllib.parse
 import asyncio
+import json
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, Optional
@@ -13,32 +15,53 @@ IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
 class ImageGenerationService:
     """
-    Dịch vụ tạo ảnh và tối ưu prompt AI đa nền tảng:
-    - Gemini / Google Imagen 3 (khi có GEMINI_API_KEY)
-    - Flux / Pollinations AI Engine (Chất lượng cao, sẵn sàng hoạt động ngay)
+    Dịch vụ tạo ảnh và tối ưu prompt AI đa nền tảng kết hợp Google Gemini và Flux Ultra Engine.
     """
 
     @staticmethod
     async def craft_visual_prompt(user_idea: str, style: str = "3D Cinematic") -> Dict[str, str]:
         """
-        Dùng LLM để chuyển đổi ý tưởng thô của người dùng thành Prompt AI đỉnh cao cho Midjourney/Flux/Imagen.
+        Dùng Gemini hoặc Groq LLM để chuyển đổi ý tưởng thô thành Prompt AI đỉnh cao.
         """
-        system_prompt = """
-Bạn là Giám Đốc Nghệ Thuật (AI Prompt Master) chuyên tạo prompt vẽ ảnh Thumbnail YouTube và hình minh họa khoa học đỉnh cao.
-Nhiệm vụ của bạn là nhận ý tưởng từ người dùng và viết ra 1 Prompt tiếng Anh hoàn hảo, siêu chi tiết cho các mô hình AI (Midjourney v6, Flux, Google Imagen 3, DALL-E 3).
+        system_prompt = """You are an elite AI Art Director specializing in YouTube Thumbnails and scientific CGI visual prompts.
+Your mission is to convert the user's concept into an extraordinary, ultra-detailed English Prompt for Midjourney v6, Flux, and DALL-E 3.
 
-QUY TẮC BẮT BUỘC:
-1. Viết prompt hoàn toàn bằng tiếng Anh.
-2. Mô tả rõ: Chủ thể chính (Subject), Ánh sáng (Lighting: cinematic, volumetric, neon rim light), Bố cục (Composition: rule of thirds, extreme close-up, cross-section), Màu sắc tương phản (Color Palette: high contrast, vibrant), Độ phân giải (hyper-realistic, 8k, octane render, Unreal Engine 5).
-3. KHÔNG viết văn giải thích dài dòng, chỉ trả về đúng định dạng JSON:
+RULES:
+1. Write the prompt entirely in English.
+2. Include: Subject, Cinematic Lighting, Dynamic Composition (cross-section, microscopic 1000x or extreme close-up), High Contrast Color Palette (neon glow, deep dark space, thermal contrast), 8k hyper-realistic octane render.
+3. Return ONLY valid JSON format:
 {
-  "optimized_prompt": "Mô tả chi tiết prompt tiếng Anh...",
-  "concept_title": "Tên concept ngắn gọn tiếng Việt",
-  "style_used": "Phong cách áp dụng"
+  "optimized_prompt": "Ultra-detailed prompt in English...",
+  "concept_title": "Short title in Vietnamese",
+  "style_used": "Style applied"
 }
 """
-        user_prompt = f"Ý tưởng người dùng: {user_idea}\nPhong cách mong muốn: {style}"
+        user_prompt = f"Concept: {user_idea}\nDesired Style: {style}"
 
+        # 1. Thử qua Gemini API trực tiếp nếu có key
+        gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
+        if gemini_key:
+            try:
+                from google import genai
+                client = genai.Client(api_key=gemini_key)
+                res = client.models.generate_content(
+                    model='gemini-3.6-flash',
+                    contents=f"{system_prompt}\n\n{user_prompt}"
+                )
+                content = res.text
+                if "{" in content and "}" in content:
+                    json_str = content[content.find("{"):content.rfind("}") + 1]
+                    data = json.loads(json_str)
+                    return {
+                        "prompt": data.get("optimized_prompt", user_idea),
+                        "title": data.get("concept_title", user_idea),
+                        "style": data.get("style_used", style),
+                        "model": "Google Gemini 3.6 Flash"
+                    }
+            except Exception as e:
+                pass
+
+        # 2. Fallback qua LLM Client (Groq)
         try:
             res = await llm_client.chat_completion(
                 messages=[
@@ -49,31 +72,30 @@ QUY TẮC BẮT BUỘC:
                 max_tokens=350
             )
             content = strip_think_tags(res.get("content", ""))
-            
-            import json
-            # Cố gắng trích xuất JSON
             if "{" in content and "}" in content:
                 json_str = content[content.find("{"):content.rfind("}") + 1]
                 data = json.loads(json_str)
                 return {
                     "prompt": data.get("optimized_prompt", user_idea),
                     "title": data.get("concept_title", user_idea),
-                    "style": data.get("style_used", style)
+                    "style": data.get("style_used", style),
+                    "model": "Groq LPU"
                 }
-        except Exception as e:
-            print(f"[ImageService] Lỗi craft prompt qua LLM: {e}", flush=True)
+        except Exception:
+            pass
 
         return {
             "prompt": f"{user_idea}, highly detailed scientific illustration, 3D cross-section, volumetric lighting, vibrant contrast, 8k resolution, cinematic masterpiece",
             "title": user_idea,
-            "style": style
+            "style": style,
+            "model": "Default Engine"
         }
 
     @classmethod
     async def generate_image(
         cls,
         prompt_or_idea: str,
-        style: str = "Cinematic 3D",
+        style: str = "3D Cinematic Masterpiece",
         width: int = 1280,
         height: int = 720,
         enhance_prompt: bool = True
@@ -85,43 +107,17 @@ QUY TẮC BẮT BUỘC:
             crafted = await cls.craft_visual_prompt(prompt_or_idea, style)
             final_prompt = crafted["prompt"]
             title = crafted["title"]
+            engine_prompt_model = crafted.get("model", "Gemini 3.6 Flash")
         else:
             final_prompt = prompt_or_idea
             title = prompt_or_idea[:30]
+            engine_prompt_model = "Direct Prompt"
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"gen_{timestamp}.png"
         filepath = IMAGES_DIR / filename
 
-        # 1. Thử qua Google Gemini / Imagen nếu có GEMINI_API_KEY
-        gemini_api_key = os.getenv("GEMINI_API_KEY", "").strip()
-        if gemini_api_key:
-            try:
-                from google import genai
-                client = genai.Client(api_key=gemini_api_key)
-                result = client.models.generate_images(
-                    model='imagen-3.0-generate-002',
-                    prompt=final_prompt,
-                    config=dict(
-                        number_of_images=1,
-                        aspect_ratio="16:9" if width > height else "9:16",
-                        output_mime_type="image/png"
-                    )
-                )
-                for generated_image in result.generated_images:
-                    filepath.write_bytes(generated_image.image.image_bytes)
-                    return {
-                        "status": "success",
-                        "provider": "Google Imagen 3 (Gemini)",
-                        "filepath": str(filepath),
-                        "filename": filename,
-                        "prompt": final_prompt,
-                        "title": title
-                    }
-            except Exception as e:
-                print(f"[ImageService] Gemini Imagen gặp sự cố, chuyển sang Flux Engine: {e}", flush=True)
-
-        # 2. Engine Flux / Pollinations AI Engine (Độ nét cao, chạy ngay lập tức)
+        # Render qua Flux Ultra Engine (Chuẩn 4K/HD, tốc độ cao)
         encoded_prompt = urllib.parse.quote(final_prompt)
         url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width={width}&height={height}&model=flux&nologo=true&seed={int(datetime.now().timestamp())}"
 
@@ -133,7 +129,7 @@ QUY TẮC BẮT BUỘC:
                         filepath.write_bytes(image_data)
                         return {
                             "status": "success",
-                            "provider": "Flux Ultra Engine",
+                            "provider": f"Flow: {engine_prompt_model} + Flux Ultra",
                             "filepath": str(filepath),
                             "filename": filename,
                             "prompt": final_prompt,
