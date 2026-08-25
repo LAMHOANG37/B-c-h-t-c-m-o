@@ -108,6 +108,12 @@ CẤU TRÚC KỊCH BẢN BẮT BUỘC (Trình bày bằng Markdown chuyên nghi�
 
 ---
 
+## 📚 TÀI LIỆU & NGUỒN XÁC THỰC KHOA HỌC (DÙNG ĐÍNH KÈM DESCRIPTION YOUTUBE):
+- 🔗 **Nguồn 1:** [Tên bài báo / Nghiên cứu / Thí nghiệm uy tín] — `[Link URL kiểm chứng thật: Nature / Science / MIT / Khan Academy / NASA / Wikipedia]`
+- 🔗 **Nguồn 2:** [Tài liệu học thuật hoặc Kênh khoa học thực chứng] — `[Link URL kiểm chứng]`
+
+---
+
 ## 💡 3 LƯU Ý KHI SẢN XUẤT VIDEO NÀY:
 1. ...
 2. ...

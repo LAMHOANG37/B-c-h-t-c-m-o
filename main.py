@@ -706,7 +706,9 @@ QUY TẮC BẮT BUỘC (TUYỆT ĐỐI TUÂN THỦ):
 2. **KHÔNG ĐƯỢC DÀI DÒNG (BẮT BUỘC NGẮN GỌN TRONG MỌI TRƯỜNG HỢP):**
    - Trả lời thẳng vào vấn đề chỉ trong 2 - 3 đoạn ngắn (tối đa 120 - 180 từ).
    - Tuyệt đối không giải thích lê thê, không lặp lại câu hỏi của người dùng.
-3. **KẾT BÀI GỢI MỞ SẮC BÉN:**
+3. **DẪN CHỨNG & LINK NGUỒN XÁC THỰC (BẮT BUỘC):**
+   - Khi giải thích bất kỳ hiện tượng khoa học, con số, hoặc đề xuất thí nghiệm nào, BẮT BUỘC phải kèm **1 - 2 đường link dẫn chứng thực tế, uy tín** (từ Nature, Science, NASA, Khan Academy, MIT OpenCourseWare, Wikipedia, hoặc video kiểm chứng) để đại ca và khán giả bấm vào xem là tin tưởng 100%!
+4. **KẾT BÀI GỢI MỞ SẮC BÉN:**
    - Luôn chốt bằng 1 - 2 câu hỏi mở hoặc gợi ý thực tế để đại ca chọn hướng triển khai tiếp.
 """
             messages_payload = [{"role": "system", "content": system_prompt}] + DM_CONVERSATION_HISTORY[conv_key]
@@ -954,7 +956,9 @@ QUY TẮC BẮT BUỘC:
 1. **SIÊU TỰ NHIÊN, CỰC GỌN GÀNG (TỐI ĐA 2 ĐOẠN NGẮN / DƯỚI 120 TỪ):**
    - Trả lời thẳng vào câu hỏi, không giải thích lan man, không dùng giọng văn mẫu robot.
    - Xưng "em", gọi người nói chuyện là "đại ca" hoặc "anh {message.author.name}".
-2. **KẾT BÀI ĐÚNG TRỌNG TÂM:**
+2. **DẪN CHỨNG & NGUỒN XÁC THỰC:**
+   - Nếu giải thích về hiện tượng khoa học, số liệu hoặc cơ chế thực nghiệm, hãy đính kèm 1 link nguồn uy tín (Nature, Science, Khan Academy, MIT, Wikipedia...) để chứng minh.
+3. **KẾT BÀI ĐÚNG TRỌNG TÂM:**
    - Đưa ra đúng 1 câu hỏi hoặc 1 gợi ý sắc bén theo đúng chuyên môn của bạn để đại ca quyết định tiếp.
 """
             llm_res = await llm_client.chat_completion(
