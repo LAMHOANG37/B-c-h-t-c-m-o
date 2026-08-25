@@ -26,6 +26,17 @@ class QuotaTracker:
         self.llm_warned_today: bool = False
         self.llm_last_warn_date: str = self._get_current_pt_date()
 
+        # Google Gemini & Flow Engine Quota
+        self.gemini_daily_limit: int = 1500   # 1,500 RPD free tier
+        self.gemini_rpm_limit: int = 15       # 15 RPM
+        self.gemini_total_requests: int = 0
+        self.gemini_daily_requests: int = 0
+        self.gemini_flow_images_generated: int = 0
+        self.gemini_latencies: list = []
+        self.gemini_last_latency_ms: float = 0.0
+        self.gemini_last_used_time: Optional[str] = None
+        self.gemini_last_reset_date: str = self._get_current_pt_date()
+
         # Session tracking (for each report run)
         self._session_yt_units: int = 0
         self._session_llm_requests: int = 0
@@ -168,6 +179,19 @@ class QuotaTracker:
 
         return False, ""
 
+    def add_gemini_request(self, latency_ms: float = 0.0, is_image_flow: bool = False):
+        """Ghi nhận một request gọi thành công tới Google Gemini API."""
+        self._check_and_reset_yt_if_needed()
+        self.gemini_total_requests += 1
+        self.gemini_daily_requests += 1
+        if is_image_flow:
+            self.gemini_flow_images_generated += 1
+        self.gemini_last_latency_ms = round(latency_ms, 1)
+        self.gemini_latencies.append(latency_ms)
+        if len(self.gemini_latencies) > 50:
+            self.gemini_latencies = self.gemini_latencies[-50:]
+        self.gemini_last_used_time = datetime.now(VIETNAM_TZ).strftime("%H:%M:%S %d/%m/%Y")
+
     def get_quota_summary(self, provider: str = "groq") -> Dict[str, Any]:
         """Lấy thông tin tổng thể phục vụ Web Dashboard và slash command /quota."""
         self._check_and_reset_yt_if_needed()
@@ -183,6 +207,11 @@ class QuotaTracker:
         groq_tok_limit = self.llm_limit_tokens or 6000
         groq_tok_rem = self.llm_remaining_tokens if self.llm_remaining_tokens is not None else groq_tok_limit
         groq_tok_pct = round((groq_tok_rem / groq_tok_limit) * 100, 1)
+
+        # Tính % Gemini
+        gemini_remaining = max(0, self.gemini_daily_limit - self.gemini_daily_requests)
+        gemini_pct = round((gemini_remaining / self.gemini_daily_limit) * 100, 1)
+        avg_latency = round(sum(self.gemini_latencies) / len(self.gemini_latencies), 1) if self.gemini_latencies else self.gemini_last_latency_ms
 
         return {
             # YouTube API
@@ -204,7 +233,21 @@ class QuotaTracker:
             "llm_remaining_tokens": groq_tok_rem,
             "llm_tokens_pct": groq_tok_pct,
             "llm_reset_requests": self.llm_reset_requests_str or "Tức thì (theo giây)",
-            "llm_reset_tokens": self.llm_reset_tokens_str or "Tức thì (theo giây)"
+            "llm_reset_tokens": self.llm_reset_tokens_str or "Tức thì (theo giây)",
+
+            # Google Gemini & Flow Engine
+            "gemini_active": bool(os.getenv("GEMINI_API_KEY", "").strip()),
+            "gemini_model": "Gemini 3.6 Flash",
+            "gemini_daily_requests": self.gemini_daily_requests,
+            "gemini_daily_limit": self.gemini_daily_limit,
+            "gemini_rpm_limit": self.gemini_rpm_limit,
+            "gemini_remaining": gemini_remaining,
+            "gemini_pct_remaining": gemini_pct,
+            "gemini_total_requests": self.gemini_total_requests,
+            "gemini_flow_images_generated": self.gemini_flow_images_generated,
+            "gemini_last_latency_ms": self.gemini_last_latency_ms,
+            "gemini_avg_latency_ms": avg_latency,
+            "gemini_last_used": self.gemini_last_used_time or "Chưa sử dụng"
         }
 
 # Singleton instance

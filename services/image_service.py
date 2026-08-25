@@ -42,12 +42,18 @@ RULES:
         gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
         if gemini_key:
             try:
+                import time
+                t0 = time.perf_counter()
                 from google import genai
+                from services.quota_tracker import quota_tracker
                 client = genai.Client(api_key=gemini_key)
                 res = client.models.generate_content(
                     model='gemini-3.6-flash',
                     contents=f"{system_prompt}\n\n{user_prompt}"
                 )
+                latency_ms = (time.perf_counter() - t0) * 1000
+                quota_tracker.add_gemini_request(latency_ms=latency_ms, is_image_flow=True)
+
                 content = res.text
                 if "{" in content and "}" in content:
                     json_str = content[content.find("{"):content.rfind("}") + 1]
@@ -56,7 +62,8 @@ RULES:
                         "prompt": data.get("optimized_prompt", user_idea),
                         "title": data.get("concept_title", user_idea),
                         "style": data.get("style_used", style),
-                        "model": "Google Gemini 3.6 Flash"
+                        "model": "Google Gemini 3.6 Flash",
+                        "latency_ms": latency_ms
                     }
             except Exception as e:
                 pass

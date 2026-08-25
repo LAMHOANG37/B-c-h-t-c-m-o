@@ -164,14 +164,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }
 
         /* QUOTA VISUAL PANELS GRID */
+        /* QUOTA VISUAL PANELS GRID */
         .quota-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
             gap: 1.5rem;
-        }
-
-        @media (max-width: 900px) {
-            .quota-grid { grid-template-columns: 1fr; }
         }
 
         .quota-card {
@@ -190,6 +187,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
         .quota-card-groq {
             border-top: 3px solid var(--accent-groq);
+        }
+
+        .quota-card-gemini {
+            border-top: 3px solid #3b82f6;
         }
 
         .quota-card-yt {
@@ -222,6 +223,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             background: rgba(249, 115, 22, 0.15);
             border: 1px solid rgba(249, 115, 22, 0.3);
             color: #fb923c;
+        }
+
+        .icon-gemini {
+            background: rgba(59, 130, 246, 0.15);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: #60a5fa;
         }
 
         .icon-yt {
@@ -290,6 +297,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         .fill-groq-tok {
             background: linear-gradient(90deg, #8b5cf6, #c084fc);
             box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+        }
+
+        .fill-gemini {
+            background: linear-gradient(90deg, #2563eb, #38bdf8);
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
         }
 
         .fill-yt {
@@ -822,6 +834,53 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 </div>
             </div>
 
+            <!-- GOOGLE GEMINI & FLOW ENGINE CARD -->
+            <div class="quota-card quota-card-gemini">
+                <div class="quota-card-header">
+                    <div class="quota-title-box">
+                        <div class="quota-icon icon-gemini">🧬</div>
+                        <div>
+                            <div class="quota-name">Google Gemini 3.6 Flash & Flow Studio</div>
+                            <div class="quota-model-sub">AI Prompt Master & Tạo Ảnh Siêu Thực 4K</div>
+                        </div>
+                    </div>
+                    <span class="badge" id="gemini-status-badge" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border-color: rgba(59, 130, 246, 0.3);">
+                        🟢 Đang Kết Nối
+                    </span>
+                </div>
+
+                <!-- GEMINI DAILY REQUESTS PROGRESS -->
+                <div class="progress-block">
+                    <div class="progress-label-row">
+                        <span class="progress-label">🧬 Hạn Mức Gọi Ngày (RPD):</span>
+                        <span class="progress-value-badge" id="gemini-rpd-badge">1,500 / 1,500 RPD (100%)</span>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill fill-gemini" id="gemini-rpd-fill" style="width: 100%;"></div>
+                    </div>
+                </div>
+
+                <!-- GEMINI STATS DETAILS -->
+                <div class="quota-stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-label">Thời Lượng Xử Lý (Latency)</span>
+                        <span class="stat-val" id="gemini-latency-val" style="color: #38bdf8;">~850 ms</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Ảnh Flow Đã Xuất</span>
+                        <span class="stat-val" id="gemini-flow-images" style="color: #a855f7;">0 ảnh</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Tổng Requests Gemini</span>
+                        <span class="stat-val" id="gemini-total-calls">0 calls</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Lần Sử Dụng Gần Nhất</span>
+                        <span class="stat-val" id="gemini-last-used" style="color: #34d399; font-size: 0.78rem;">Sẵn sàng</span>
+                    </div>
+                </div>
+            </div>
+
             <!-- YOUTUBE API QUOTA CARD -->
             <div class="quota-card quota-card-yt">
                 <div class="quota-card-header">
@@ -1003,6 +1062,19 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 document.getElementById('groq-total-requests').innerText = `${q.llm_total_requests} calls`;
                 document.getElementById('groq-reset-req').innerText = q.llm_reset_requests;
                 document.getElementById('groq-reset-tok').innerText = q.llm_reset_tokens;
+
+                // Cập nhật Google Gemini & Flow Engine
+                if (q.gemini_active) {
+                    document.getElementById('gemini-status-badge').innerText = '🟢 Đang Kết Nối';
+                    document.getElementById('gemini-rpd-badge').innerText = `${q.gemini_remaining.toLocaleString()} / ${q.gemini_daily_limit.toLocaleString()} RPD (${q.gemini_pct_remaining}%)`;
+                    document.getElementById('gemini-rpd-fill').style.width = `${Math.min(100, Math.max(0, q.gemini_pct_remaining))}%`;
+                    document.getElementById('gemini-latency-val').innerText = q.gemini_last_latency_ms > 0 ? `${q.gemini_last_latency_ms} ms (TB: ${q.gemini_avg_latency_ms} ms)` : '~850 ms';
+                    document.getElementById('gemini-flow-images').innerText = `${q.gemini_flow_images_generated} ảnh`;
+                    document.getElementById('gemini-total-calls').innerText = `${q.gemini_total_requests} calls`;
+                    document.getElementById('gemini-last-used').innerText = q.gemini_last_used;
+                } else {
+                    document.getElementById('gemini-status-badge').innerText = '⚪ Chưa Cấu Hình';
+                }
 
                 // Cập nhật YouTube API Quota
                 document.getElementById('yt-units-badge').innerText = `${q.yt_remaining.toLocaleString()} / ${q.yt_limit.toLocaleString()} units (${q.yt_pct_remaining.toFixed(1)}%)`;
