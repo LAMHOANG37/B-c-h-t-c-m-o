@@ -1201,18 +1201,22 @@ def create_dashboard_app() -> web.Application:
     return app
 
 async def start_dashboard_server(host: str = "0.0.0.0", port: int = 5000):
+    env_port_raw = os.getenv("PORT", "").strip()
+    target_port = int(env_port_raw) if env_port_raw.isdigit() else port
+
     app = create_dashboard_app()
     runner = web.AppRunner(app)
     await runner.setup()
     
-    ports_to_try = [port, 5001, 5050, 8080]
+    ports_to_try = [target_port, 5000, 8080, 10000]
     for p in ports_to_try:
         try:
             site = web.TCPSite(runner, host, p)
             await site.start()
-            print(f"[Dashboard Server] [🚀 ONLINE] Giao diện quản lý đã sẵn sàng tại: http://localhost:{p}", flush=True)
+            print(f"[Dashboard Server] [🚀 ONLINE] Giao diện quản lý đã sẵn sàng tại port {p} (http://localhost:{p})", flush=True)
             return p
         except Exception as err:
             if p == ports_to_try[-1]:
-                raise err
+                print(f"[Dashboard Server] Cảnh báo: Không thể bind port ({err})", flush=True)
+                return None
             continue
