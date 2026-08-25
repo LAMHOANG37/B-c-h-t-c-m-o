@@ -528,6 +528,19 @@ async def execute_script_generation(initiator_user: discord.User, channel, topic
             except Exception:
                 pass
 
+            # Ghi log vào Database cho Web Dashboard
+            channel_display_name = "Direct Message (DM)" if is_dm else f"#{getattr(channel, 'name', 'server-channel')}"
+            chat_logger.log_chat(
+                context_type="DM" if is_dm else "Channel",
+                channel_name=channel_display_name,
+                user_id=str(initiator_user.id),
+                user_name=initiator_user.name,
+                bot_name="Market Agent",
+                bot_role="Biên Kịch AI",
+                user_message=f"Tạo kịch bản: {topic}",
+                bot_response=f"🎬 Đã xuất kịch bản 4 bước & bộ Prompt AI ({res['format']}): {res['filename']}"
+            )
+
             # Nếu yêu cầu có nhắc tới "hình ảnh" hoặc "vẽ ảnh", tự động xuất luôn 1 ảnh minh họa 4K
             if any(w in topic.lower() for w in ["hình ảnh", "hinh anh", "vẽ ảnh", "ve anh", "ảnh", "anh"]):
                 await execute_image_generation(
@@ -581,6 +594,18 @@ async def execute_channel_audit(initiator_user: discord.User, channel, channel_i
                 await loading_msg.delete()
             except Exception:
                 pass
+
+            channel_display_name = "Direct Message (DM)" if is_dm else f"#{getattr(channel, 'name', 'server-channel')}"
+            chat_logger.log_chat(
+                context_type="DM" if is_dm else "Channel",
+                channel_name=channel_display_name,
+                user_id=str(initiator_user.id),
+                user_name=initiator_user.name,
+                bot_name="Thumbnail Agent",
+                bot_role="Audit Kênh",
+                user_message=f"Audit kênh: {channel_input}",
+                bot_response=f"📊 Đã bóc tách SEO & xuất 3 Prompt AI: {res['filename']}"
+            )
     except Exception as e:
         await channel.send(f"⚠️ Có lỗi trong quá trình Audit kênh: {e}")
 
@@ -589,6 +614,7 @@ async def execute_image_generation(initiator_user: discord.User, channel, prompt
     Thực thi Flow AI: Tự động phân tích ý tưởng, viết Prompt tối ưu và tự vẽ ảnh 4K gửi vào Discord.
     """
     from services.image_service import image_service
+    is_dm = isinstance(channel, discord.DMChannel) or (channel.guild is None)
     width, height = (1280, 720) if aspect_ratio == "16:9" else (720, 1280)
     
     clean_idea = prompt_or_idea.replace("vẽ ảnh", "").replace("tạo ảnh", "").replace("ve anh", "").replace("tao anh", "").replace("vẽ thumbnail", "").replace("ve thumbnail", "").strip()
@@ -625,6 +651,18 @@ async def execute_image_generation(initiator_user: discord.User, channel, prompt
                 await loading_msg.delete()
             except Exception:
                 pass
+
+            channel_display_name = "Direct Message (DM)" if is_dm else f"#{getattr(channel, 'name', 'server-channel')}"
+            chat_logger.log_chat(
+                context_type="DM" if is_dm else "Channel",
+                channel_name=channel_display_name,
+                user_id=str(initiator_user.id),
+                user_name=initiator_user.name,
+                bot_name="Thumbnail Agent",
+                bot_role="Flow Visual Studio",
+                user_message=f"Vẽ ảnh: {prompt_or_idea}",
+                bot_response=f"🎨 Đã vẽ & render ảnh 4K ({aspect_ratio}): {res['filename']}"
+            )
     except Exception as e:
         await channel.send(f"⚠️ Có lỗi trong quá trình vẽ ảnh: {e}")
 

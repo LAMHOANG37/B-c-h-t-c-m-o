@@ -1243,15 +1243,18 @@ def create_dashboard_app() -> web.Application:
             return web.json_response([])
         
         files = []
-        for fn in sorted(os.listdir(reports_dir), reverse=True):
-            if fn.endswith(".md"):
-                fp = os.path.join(reports_dir, fn)
-                st = os.stat(fp)
-                files.append({
-                    "filename": fn,
-                    "size": st.st_size,
-                    "modified_time": datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
-                })
+        for root, _, filenames in os.walk(reports_dir):
+            for fn in filenames:
+                if fn.endswith(".md"):
+                    fp = os.path.join(root, fn)
+                    rel_name = os.path.relpath(fp, reports_dir).replace("\\", "/")
+                    st = os.stat(fp)
+                    files.append({
+                        "filename": rel_name,
+                        "size": st.st_size,
+                        "modified_time": datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+                    })
+        files.sort(key=lambda x: x["modified_time"], reverse=True)
         return web.json_response(files)
 
     async def handle_api_report_content(request):
@@ -1268,7 +1271,7 @@ def create_dashboard_app() -> web.Application:
     app.router.add_get("/api/chats", handle_api_chats)
     app.router.add_get("/api/stats", handle_api_stats)
     app.router.add_get("/api/reports", handle_api_reports)
-    app.router.add_get("/api/reports/{filename}", handle_api_report_content)
+    app.router.add_get("/api/reports/{filename:.+}", handle_api_report_content)
 
     return app
 
