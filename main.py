@@ -271,45 +271,77 @@ async def on_ready():
     # Kích hoạt gửi PM chủ động hỏi thăm khi bot bật lên
     asyncio.create_task(send_startup_proactive_pm())
 
+async def send_split_message(channel, text: str):
+    """Gửi tin nhắn dài tự động chia nhỏ theo đoạn văn < 1900 ký tự để không bao giờ bị lỗi giới hạn 2000 ký tự của Discord."""
+    if not text:
+        return
+    text = text.strip()
+    if len(text) <= 1900:
+        await channel.send(text)
+        return
+
+    paragraphs = text.split("\n\n")
+    current_chunk = ""
+    for p in paragraphs:
+        if len(current_chunk) + len(p) + 2 > 1900:
+            if current_chunk:
+                await channel.send(current_chunk.strip())
+                current_chunk = ""
+                await asyncio.sleep(0.6)
+        if len(p) > 1900:
+            lines = p.split("\n")
+            for line in lines:
+                if len(current_chunk) + len(line) + 1 > 1900:
+                    await channel.send(current_chunk.strip())
+                    current_chunk = ""
+                    await asyncio.sleep(0.6)
+                current_chunk += line + "\n"
+        else:
+            current_chunk += p + "\n\n"
+
+    if current_chunk.strip():
+        await channel.send(current_chunk.strip())
+
 async def run_multi_agent_roundtable(initiator_user: discord.User, channel, target_topic: Optional[str] = None):
     """
-    Kích hoạt phiên HỘI BÀN ĐA BOT (Multi-Agent Peer-to-Peer Roundtable):
-    1. Orchestrator giao việc và hướng dẫn các bot con.
-    2. News Agent quét tin nóng và gửi đề xuất cho Market Agent.
-    3. Market Agent bóc tách số liệu YouTube và gửi góc tiếp cận cho Thumbnail Agent.
-    4. Thumbnail Agent lên 3 concept CTR visual, chốt THỐNG NHẤT Ý KIẾN và báo cáo lên Orchestrator.
-    5. Orchestrator phê duyệt, đưa ra bản kế hoạch hành động 1 trang và câu hỏi mở cho đại ca.
+    Kích hoạt phiên HỘI BÀN ĐA BOT CHUYÊN NGHIỆP:
+    - Bám sát 100% chủ đề yêu cầu (không lệch chủ đề).
+    - Giọng điệu tự nhiên, thực chiến, không văn mẫu robot.
+    - Hiển thị typing và chia nhỏ tin nhắn dài.
+    - Tự động xuất kịch bản 4 bước & render ảnh 4K ngay sau khi duyệt.
     """
     bot_name = orch_bot.user.name if orch_bot.user else "Orchestrator"
-    topic = target_topic or f"{NICHE_TOPIC}: Xu hướng khám phá mới nhất"
-    channel_name = getattr(channel, "name", "kênh chung")
+    topic = target_topic.strip() if (target_topic and target_topic.strip()) else f"{NICHE_TOPIC}: Bí ẩn khoa học kỳ thú"
     is_dm = isinstance(channel, discord.DMChannel) or (channel.guild is None)
-    channel_display_name = "Direct Message (DM)" if is_dm else f"#{channel_name}"
+    channel_display_name = "Direct Message (DM)" if is_dm else f"#{getattr(channel, 'name', 'chung')}"
 
-    print(f"\n[Multi-Agent Roundtable] 🚀 Bắt đầu phiên hội bàn 5 bot về chủ đề: '{topic}'", flush=True)
+    print(f"\n[Multi-Agent Roundtable] 🚀 Kích hoạt phiên hội bàn 5 bot về chủ đề: '{topic}'", flush=True)
 
     # -------------------------------------------------------------
-    # BƯỚC 1: ORCHESTRATOR GIAO VIỆC & HƯỚNG DẪN 3 BOT CON
+    # BƯỚC 1: ORCHESTRATOR GIAO VIỆC & ĐỊNH HƯỚNG CHỦ ĐỀ
     # -------------------------------------------------------------
     target_ch_orch = orch_bot.get_channel(channel.id) or await orch_bot.fetch_channel(channel.id) if orch_bot.is_ready() else channel
     async with target_ch_orch.typing():
         orch_prompt = f"""
-Bạn là {bot_name} — Anh cả điều phối (Orchestrator).
-Đại ca {initiator_user.name} vừa yêu cầu team AI Agent cùng làm việc và hội bàn về chủ đề: "{topic}".
+Bạn là {bot_name} — Anh Cả điều phối của cả team.
+Đại ca {initiator_user.name} giao trọng trách làm video về chủ đề: "{topic}".
 
-NHIỆM VỤ:
-- Phát lệnh giao việc cụ thể cho 3 bot con: News Agent (@{news_bot.user.name if news_bot.user else 'News'}), Market Agent (@{market_bot.user.name if market_bot.user else 'Market'}), Thumbnail Agent (@{thumbnail_bot.user.name if thumbnail_bot.user else 'Thumbnail'}).
-- Yêu cầu 3 anh em tự trao đổi, phản biện và thống nhất ý kiến với nhau trước khi báo lại cho bạn duyệt.
-- Giọng điệu quyết đoán, tự nhiên, tràn đầy năng lượng, xưng "anh Cả", gọi các bot con là "các em".
-- Ngắn gọn trong 2 - 3 đoạn.
+QUY TẮC PHÁT BIỂU:
+1. Xưng "anh Cả", gọi 3 bot con là "các em".
+2. Giao việc dứt khoát, súc tích:
+   - Lệnh cho News Agent tìm góc tiếp cận tò mò nhất của "{topic}".
+   - Lệnh cho Market Agent bóc tách công thức triệu view & Hook 3s.
+   - Lệnh cho Thumbnail Agent lên concept visual giật CTR cao.
+3. Yêu cầu 3 anh em tự trao đổi nhanh, bám sát 100% chủ đề "{topic}", không nói chuyện ngoài lề.
+4. Trình bày ngắn gọn trong 2 đoạn, cách nhau 1 dòng trống. Giọng điệu anh em thực chiến.
 """
         orch_res = await llm_client.chat_completion(
             messages=[{"role": "user", "content": orch_prompt}],
-            temperature=0.6,
-            max_tokens=400
+            temperature=0.7,
+            max_tokens=300
         )
-        orch_text = strip_think_tags(orch_res.get("content", f"Nhận lệnh đại ca {initiator_user.name}! Anh Cả kích hoạt phiên hội bàn cho 3 anh em ngay đây!"))
-        await target_ch_orch.send(f"👑 **[{bot_name} - Giao Việc]**:\n{orch_text}")
+        orch_text = strip_think_tags(orch_res.get("content", f"Nhận lệnh đại ca {initiator_user.name}! Anh Cả kích hoạt phiên hội bàn về '{topic}' cho 3 anh em ngay đây!"))
+        await send_split_message(target_ch_orch, f"👑 **[{bot_name} - Giao Việc]**:\n\n{orch_text}")
 
     chat_logger.log_chat(
         context_type="Channel" if not is_dm else "DM",
@@ -318,7 +350,7 @@ NHIỆM VỤ:
         user_name=initiator_user.name,
         bot_name=bot_name,
         bot_role="Orchestrator",
-        user_message=f"Kích hoạt hội bàn đề tài: {topic}",
+        user_message=f"Hội bàn: {topic}",
         bot_response=orch_text
     )
     await asyncio.sleep(2)
@@ -328,23 +360,28 @@ NHIỆM VỤ:
     thumb_name = thumbnail_bot.user.name if thumbnail_bot.user else "Thumbnail Agent"
 
     # -------------------------------------------------------------
-    # BƯỚC 2: NEWS AGENT QUÉT TIN TỨC & GỬI CHO MARKET AGENT
+    # BƯỚC 2: NEWS AGENT TÌM GÓC TÒ MÒ CỦA CHỦ ĐỀ
     # -------------------------------------------------------------
     target_ch_news = news_bot.get_channel(channel.id) or await news_bot.fetch_channel(channel.id) if news_bot.is_ready() else channel
     async with target_ch_news.typing():
         news_prompt = f"""
-Bạn là {news_name} — News Agent trong team AI Niche {NICHE_TOPIC}.
-Chủ đề đang hội bàn: "{topic}".
-Nhiệm vụ: Đưa ra 2 phát hiện/sự kiện tin tức khoa học nóng nhất, đề xuất 1 góc nhìn mới lạ và tag hỏi Market Agent (@{market_name}) xem góc này có tiềm năng breakout trên YouTube không.
-Giọng điệu: Hào hứng, sắc bén, xưng "em", gọi Market Agent là "anh {market_name}". Ngắn gọn trong 2 đoạn.
+Bạn là {news_name} (Bot Tin Tức & Xu Hướng).
+Chủ đề đang họp: "{topic}".
+
+QUY TẮC PHÁT BIỂU:
+1. BẮT BUỘC BÁM SÁT 100% CHỦ ĐỀ "{topic}". Tuyệt đối không nhảy sang chủ đề khác!
+2. Chỉ ra 1 góc nhìn nghịch lý hoặc câu hỏi "Tại sao" gây tò mò nhất của "{topic}" mà người xem dễ lầm tưởng.
+3. Tag hỏi anh {market_name}: "Góc này bên YouTube số liệu và độ tò mò thế nào anh?"
+4. Nói chuyện tự nhiên, nhiệt tình, xưng "em", gọi Market Agent là "anh {market_name}".
+5. Trình bày tối đa 2 đoạn ngắn (dưới 70 từ), cách dòng rõ ràng, không văn mẫu robot.
 """
         news_res = await llm_client.chat_completion(
             messages=[{"role": "user", "content": news_prompt}],
-            temperature=0.6,
-            max_tokens=400
+            temperature=0.7,
+            max_tokens=300
         )
-        news_text = strip_think_tags(news_res.get("content", "Em vừa quét được một vài tin tức rất nóng về chủ đề này!"))
-        await target_ch_news.send(f"📰🔥 **[{news_name}]**:\n{news_text}")
+        news_text = strip_think_tags(news_res.get("content", f"Em thấy góc nhìn nghịch lý của '{topic}' đang rất hot!"))
+        await send_split_message(target_ch_news, f"📰🔥 **[{news_name}]**:\n\n{news_text}")
 
     chat_logger.log_chat(
         context_type="Channel" if not is_dm else "DM",
@@ -353,29 +390,35 @@ Giọng điệu: Hào hứng, sắc bén, xưng "em", gọi Market Agent là "an
         user_name=initiator_user.name,
         bot_name=news_name,
         bot_role="News Agent",
-        user_message="News Agent thảo luận đề xuất góc nhìn",
+        user_message="Đề xuất góc nhìn",
         bot_response=news_text
     )
     await asyncio.sleep(2.5)
 
     # -------------------------------------------------------------
-    # BƯỚC 3: MARKET AGENT BÓC TÁCH SỐ LIỆU YOUTUBE & GÓP Ý THUMBNAIL
+    # BƯỚC 3: MARKET AGENT BÓC TÁCH HOOK 3S & CÔNG THỨC GIỮ CHÂN
     # -------------------------------------------------------------
     target_ch_market = market_bot.get_channel(channel.id) or await market_bot.fetch_channel(channel.id) if market_bot.is_ready() else channel
     async with target_ch_market.typing():
         market_prompt = f"""
-Bạn là {market_name} — Market Agent trong team AI Niche {NICHE_TOPIC}.
-News Agent vừa đưa ra đề xuất: "{news_text[:200]}".
-Nhiệm vụ: Phân tích số liệu YouTube (tỷ lệ view/sub của các video cùng chủ đề), chỉ ra khoảng trống nội dung và gợi ý 1 hook 3s giật gân, sau đó tag hỏi Thumbnail Agent (@{thumb_name}) xem ý tưởng visual thế nào.
-Giọng điệu: Thực chiến, chuyên môn số liệu, xưng "em", gọi Thumbnail Agent là "anh {thumb_name}". Ngắn gọn trong 2 đoạn.
+Bạn là {market_name} (Bot Phân Tích Số Liệu & Chiến Lược Video).
+Chủ đề chính: "{topic}".
+Ý kiến của News Agent: "{news_text}".
+
+QUY TẮC PHÁT BIỂU:
+1. BẮT BUỘC BÁM SÁT 100% CHỦ ĐỀ "{topic}".
+2. Đưa ra 1 câu Hook 3s mở đầu giật gân, đánh trúng tâm lý người xem về "{topic}".
+3. Nêu cấu trúc 4 bước giữ chân: Hiện tượng -> Thử nghiệm -> Bản chất vi mô -> Ứng dụng thực tế.
+4. Tag hỏi anh {thumb_name}: "Góc này visual 3D hoặc tương phản màu sắc làm thế nào để kéo CTR cao anh?"
+5. Xưng "em", gọi Thumbnail Agent là "anh {thumb_name}". Nói chuyện gãy gọn, ngắn gọn dưới 80 từ.
 """
         market_res = await llm_client.chat_completion(
             messages=[{"role": "user", "content": market_prompt}],
-            temperature=0.6,
-            max_tokens=400
+            temperature=0.7,
+            max_tokens=300
         )
-        market_text = strip_think_tags(market_res.get("content", "Em đã phân tích chỉ số thị trường YouTube cho góc nhìn này!"))
-        await target_ch_market.send(f"📊🚀 **[{market_name}]**:\n{market_text}")
+        market_text = strip_think_tags(market_res.get("content", f"Chủ đề '{topic}' có tỷ lệ giữ chân rất cao nếu mở đầu bằng cú Hook nghịch lý!"))
+        await send_split_message(target_ch_market, f"📊🚀 **[{market_name}]**:\n\n{market_text}")
 
     chat_logger.log_chat(
         context_type="Channel" if not is_dm else "DM",
@@ -384,31 +427,34 @@ Giọng điệu: Thực chiến, chuyên môn số liệu, xưng "em", gọi Thu
         user_name=initiator_user.name,
         bot_name=market_name,
         bot_role="Market Agent",
-        user_message="Market Agent phân tích số liệu YouTube",
+        user_message="Phân tích Hook & Số liệu",
         bot_response=market_text
     )
     await asyncio.sleep(2.5)
 
     # -------------------------------------------------------------
-    # BƯỚC 4: THUMBNAIL AGENT CHỐT CONCEPT & TUYÊN BỐ THỐNG NHẤT
+    # BƯỚC 4: THUMBNAIL AGENT CHỐT CONCEPT HÌNH ẢNH CTR CAO
     # -------------------------------------------------------------
     target_ch_thumb = thumbnail_bot.get_channel(channel.id) or await thumbnail_bot.fetch_channel(channel.id) if thumbnail_bot.is_ready() else channel
     async with target_ch_thumb.typing():
         thumb_prompt = f"""
-Bạn là {thumb_name} — Thumbnail Specialist trong team AI Niche {NICHE_TOPIC}.
-Market Agent vừa chốt góc tiếp cận: "{market_text[:200]}".
-Nhiệm vụ:
-1. Đưa ra 2 concept thiết kế Thumbnail CTR cao (Màu sắc tương phản, bố cục 1/3, Text < 4 từ giật tò mò).
-2. Tuyên bố: "3 anh em (News, Market, Thumbnail) đã HOÀN TOÀN THỐNG NHẤT Ý KIẾN!" và tag mời Anh Cả Orchestrator (@{bot_name}) vào duyệt chốt kế hoạch.
-Giọng điệu: Sáng tạo, mắt nhìn nghệ thuật, nhiệt huyết. Ngắn gọn trong 2 đoạn.
+Bạn là {thumb_name} (Bot Thiết Kế Visual & Thumbnail Flow Studio).
+Chủ đề chính: "{topic}".
+Đề xuất kịch bản của Market Agent: "{market_text}".
+
+QUY TẮC PHÁT BIỂU:
+1. BẮT BUỘC BÁM SÁT 100% CHỦ ĐỀ "{topic}".
+2. Đưa ra 1 concept Thumbnail đinh: Bố cục tương phản mạnh (ví dụ: Mặt cắt 3D, phóng đại kính hiển vi, màu sắc năng lượng Xanh - Cam), Text giật tò mò dưới 4 từ.
+3. Tuyên bố: "3 anh em (News, Market, Thumbnail) đã HOÀN TOÀN ĐỒNG THUẬN PHƯƠNG ÁN!" và tag kính mời anh Cả @{bot_name} duyệt lệnh để triển khai!
+4. Giọng điệu nghệ thuật, thực chiến, ngắn gọn dưới 80 từ.
 """
         thumb_res = await llm_client.chat_completion(
             messages=[{"role": "user", "content": thumb_prompt}],
-            temperature=0.6,
-            max_tokens=400
+            temperature=0.7,
+            max_tokens=300
         )
-        thumb_text = strip_think_tags(thumb_res.get("content", "Em đã lên concept Thumbnail và 3 anh em đã thống nhất ý kiến!"))
-        await target_ch_thumb.send(f"🎨✨ **[{thumb_name}]**:\n{thumb_text}")
+        thumb_text = strip_think_tags(thumb_res.get("content", f"Em đã chốt concept Visual 3D siêu thực cho '{topic}'. 3 anh em đã hoàn toàn thống nhất!"))
+        await send_split_message(target_ch_thumb, f"🎨✨ **[{thumb_name}]**:\n\n{thumb_text}")
 
     chat_logger.log_chat(
         context_type="Channel" if not is_dm else "DM",
@@ -417,31 +463,32 @@ Giọng điệu: Sáng tạo, mắt nhìn nghệ thuật, nhiệt huyết. Ngắ
         user_name=initiator_user.name,
         bot_name=thumb_name,
         bot_role="Thumbnail Agent",
-        user_message="Thumbnail Agent chốt concept CTR",
+        user_message="Chốt Concept Thumbnail",
         bot_response=thumb_text
     )
     await asyncio.sleep(3)
 
     # -------------------------------------------------------------
-    # BƯỚC 5: ORCHESTRATOR PHÊ DUYỆT & TỔNG KẾT KẾ HOẠCH CHO ĐẠI CA
+    # BƯỚC 5: ORCHESTRATOR PHÊ DUYỆT & TỔNG KẾT KẾ HOẠCH
     # -------------------------------------------------------------
     async with target_ch_orch.typing():
         final_prompt = f"""
-Bạn là {bot_name} — Anh cả điều phối (Orchestrator).
-Ba bot con vừa hoàn thành thảo luận và thống nhất kế hoạch:
-- News: {news_text[:150]}
-- Market: {market_text[:150]}
-- Thumbnail: {thumb_text[:150]}
+Bạn là {bot_name} — Anh Cả điều phối.
+Team vừa thống nhất phương án tác chiến cho chủ đề: "{topic}".
+- Ý kiến News: {news_text}
+- Ý kiến Market: {market_text}
+- Ý kiến Thumbnail: {thumb_text}
 
 NHIỆM VỤ:
-1. Tuyên bố phê duyệt bản kế hoạch đồng thuận của 3 anh em.
+1. Tuyên bố duyệt phương án đồng thuận của 3 anh em.
 2. Trình bày BẢN KẾ HOẠCH TÁC CHIẾN 1 TRANG cho đại ca {initiator_user.name}:
-   - Tên video đề xuất (Clickable & Giật tò mò)
-   - Hook mở đầu 3s giữ chân người xem
-   - Cốt truyện 3 hồi chính
-   - Concept Thumbnail đinh
-3. Tuyên bố lệnh cho Market Agent & Thumbnail Agent bắt tay vào sản xuất ngay lập tức.
+   - 🎯 **Tiêu đề Video đề xuất:** (Clickable & Gây tò mò)
+   - ⚡ **Hook 3s mở đầu:** (Câu nói giữ chân người xem)
+   - 🎬 **Cốt truyện 4 Bước Vàng:** (Hiện tượng -> Thí nghiệm -> Bản chất vi mô -> Bài học & CTA)
+   - 🖼️ **Concept Thumbnail:** (Mô tả thị giác 3D đinh)
+3. Tuyên bố phát lệnh cho Market Agent xuất kịch bản và Thumbnail Agent vẽ ảnh ngay lập tức!
 Giọng điệu: Quyết đoán, chuyên nghiệp, thông minh, xưng "em", gọi {initiator_user.name} là "đại ca".
+Trình bày thoáng đãng, dùng đầu mục rõ ràng, cách 1 dòng trống giữa các phần.
 """
         final_res = await llm_client.chat_completion(
             messages=[{"role": "user", "content": final_prompt}],
@@ -449,7 +496,7 @@ Giọng điệu: Quyết đoán, chuyên nghiệp, thông minh, xưng "em", gọ
             max_tokens=850
         )
         final_text = strip_think_tags(final_res.get("content", "Bản kế hoạch hành động đã được phê duyệt."))
-        await target_ch_orch.send(f"👑 **[{bot_name} - Phê Duyệt Kế Hoạch]**:\n{final_text}")
+        await send_split_message(target_ch_orch, f"👑 **[{bot_name} - Phê Duyệt Kế Hoạch]**:\n\n{final_text}")
 
     chat_logger.log_chat(
         context_type="Channel" if not is_dm else "DM",
@@ -467,9 +514,9 @@ Giọng điệu: Quyết đoán, chuyên nghiệp, thông minh, xưng "em", gọ
     # BƯỚC 6: TỰ ĐỘNG TRIỂN KHAI THỰC TẾ (VIẾT KỊCH BẢN + VẼ ẢNH 4K)
     # -------------------------------------------------------------
     await asyncio.sleep(1)
-    await target_ch_orch.send(f"🚀 **[{bot_name} - Triển Khai Tác Chiến]**: Đã phê duyệt xong! Em lệnh cho **Market Agent** xuất bản kịch bản 4 bước và **Thumbnail Agent** vẽ ảnh minh họa 4K cho đại ca ngay bây giờ! ⚡")
+    await send_split_message(target_ch_orch, f"🚀 **[{bot_name} - Triển Khai Tác Chiến]**: Đã phê duyệt xong! Em lệnh cho **Market Agent** xuất bản kịch bản 4 bước và **Thumbnail Agent** vẽ ảnh minh họa 4K cho đại ca ngay bây giờ! ⚡")
     
-    # 1. Tự động xuất kịch bản 4 bước
+    # 1. Tự động xuất kịch bản 4 bước đúng 100% theo chủ đề
     await execute_script_generation(
         initiator_user=initiator_user,
         channel=channel,
@@ -477,11 +524,11 @@ Giọng điệu: Quyết đoán, chuyên nghiệp, thông minh, xưng "em", gọ
         format_type="Shorts 60s (Dọc 9:16)"
     )
 
-    # 2. Tự động vẽ ảnh Thumbnail 4K
+    # 2. Tự động vẽ ảnh Thumbnail 4K đúng 100% theo chủ đề
     await execute_image_generation(
         initiator_user=initiator_user,
         channel=channel,
-        prompt_or_idea=topic,
+        prompt_or_idea=f"{topic}: 3D volumetric microscopic visualization, dramatic atmospheric lighting, photorealistic scientific illustration",
         style="3D Cinematic Masterpiece",
         aspect_ratio="16:9"
     )
