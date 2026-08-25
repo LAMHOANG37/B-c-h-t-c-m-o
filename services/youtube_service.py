@@ -1,6 +1,6 @@
 import asyncio
 from datetime import datetime, timezone, timedelta
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from config import YOUTUBE_API_KEY
