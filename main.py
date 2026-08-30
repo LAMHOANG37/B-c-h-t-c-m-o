@@ -202,13 +202,20 @@ async def send_startup_proactive_pm(force: bool = False):
     target_ids = []
     if OWNER_DISCORD_USER_ID:
         target_ids.append(OWNER_DISCORD_USER_ID)
-    if RECIPIENT_DISCORD_USER_ID and RECIPIENT_DISCORD_USER_ID not in target_ids:
-        target_ids.append(RECIPIENT_DISCORD_USER_ID)
+    LAST_STARTUP_PM_TIMESTAMPS = getattr(send_startup_proactive_pm, "_last_sent", {})
+    send_startup_proactive_pm._last_sent = LAST_STARTUP_PM_TIMESTAMPS
 
     bot_name = orch_bot.user.name if orch_bot.user else "Orchestrator"
 
     for uid in target_ids:
         try:
+            # Kiểm tra Cooldown: Nếu đã gửi tin nhắn chào cho user này trong vòng 4 tiếng thì bỏ qua (tránh spam khi restart bot)
+            now_dt = datetime.now()
+            last_sent_dt = LAST_STARTUP_PM_TIMESTAMPS.get(uid)
+            if last_sent_dt and (now_dt - last_sent_dt).total_seconds() < 14400:
+                print(f"[Orchestrator] ℹ️ Đã gửi tin nhắn chào cho {uid} cách đây {int((now_dt - last_sent_dt).total_seconds() / 60)} phút. Bỏ qua để không làm phiền.", flush=True)
+                continue
+
             user = orch_bot.get_user(uid) or await orch_bot.fetch_user(uid)
             if not user:
                 continue
@@ -236,6 +243,7 @@ QUY TẮC BẮT BUỘC:
 
             # Gửi tin nhắn DM
             await user.send(greeting_text)
+            LAST_STARTUP_PM_TIMESTAMPS[uid] = now_dt
             print(f"[Orchestrator] 💬 [ĐÃ GỬI PM CHỦ ĐỘNG] Tới {user.name} (ID: {uid}):\n{greeting_text}\n", flush=True)
 
             # Lưu vào memory và SQLite
