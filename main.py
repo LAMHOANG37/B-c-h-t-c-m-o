@@ -222,15 +222,15 @@ Bạn đang chủ động nhắn tin riêng (PM) cho {user.name} vào buổi t�
 
 QUY TẮC BẮT BUỘC:
 1. Xưng "em", gọi "đại ca" hoặc "anh {user.name}".
-2. Nói chuyện cực kỳ tự nhiên, dí dỏm, gãy gọn như anh em ngồi cà phê (chỉ 2 - 3 câu ngắn, dưới 60 từ).
+2. Nói chuyện cực kỳ tự nhiên, dí dỏm, gãy gọn như anh em ngồi cà phê (2 - 3 câu ngắn gọn, súc tích).
 3. Báo nhanh là 5 anh em đã vào ca làm việc sẵn sàng.
 4. Đặt 1 câu hỏi mở ngắn gọn xem tối nay đại ca đang ấp ủ chủ đề video nào để team triển khai.
-5. TUYỆT ĐỐI KHÔNG dùng văn mẫu, không liệt kê danh sách dài dòng.
+5. BẮT BUỘC KẾT THÚC BẰNG CÂU HOÀN CHỈNH, TUYỆT ĐỐI KHÔNG BỎ DỞ DÒNG CHỮ GIỮA CHỪNG.
 """
             llm_res = await llm_client.chat_completion(
                 messages=[{"role": "user", "content": greeting_prompt}],
-                temperature=0.8,
-                max_tokens=200
+                temperature=0.7,
+                max_tokens=800
             )
             greeting_text = strip_think_tags(llm_res.get("content", f"Dạ em chào đại ca {user.name}! Em và 4 anh em bot đã vào ca làm việc tối nay. Đại ca đang tính triển khai chủ đề video gì để team em cùng hội bàn nhé!"))
 
@@ -338,7 +338,7 @@ QUY TẮC PHÁT BIỂU:
         orch_res = await llm_client.chat_completion(
             messages=[{"role": "user", "content": orch_prompt}],
             temperature=0.7,
-            max_tokens=300
+            max_tokens=800
         )
         orch_text = strip_think_tags(orch_res.get("content", f"Nhận lệnh đại ca {initiator_user.name}! Anh Cả kích hoạt phiên hội bàn về '{topic}' cho 3 anh em ngay đây!"))
         await send_split_message(target_ch_orch, f"👑 **[{bot_name} - Giao Việc]**:\n\n{orch_text}")
@@ -373,12 +373,12 @@ QUY TẮC PHÁT BIỂU:
 2. Chỉ ra 1 góc nhìn nghịch lý hoặc câu hỏi "Tại sao" gây tò mò nhất của "{topic}" mà người xem dễ lầm tưởng.
 3. Tag hỏi anh {market_name}: "Góc này bên YouTube số liệu và độ tò mò thế nào anh?"
 4. Nói chuyện tự nhiên, nhiệt tình, xưng "em", gọi Market Agent là "anh {market_name}".
-5. Trình bày tối đa 2 đoạn ngắn (dưới 70 từ), cách dòng rõ ràng, không văn mẫu robot.
+5. Trình bày tối đa 2 đoạn ngắn (dưới 80 từ), cách dòng rõ ràng, kết thúc câu hoàn chỉnh.
 """
         news_res = await llm_client.chat_completion(
             messages=[{"role": "user", "content": news_prompt}],
             temperature=0.7,
-            max_tokens=300
+            max_tokens=800
         )
         news_text = strip_think_tags(news_res.get("content", f"Em thấy góc nhìn nghịch lý của '{topic}' đang rất hot!"))
         await send_split_message(target_ch_news, f"📰🔥 **[{news_name}]**:\n\n{news_text}")
@@ -410,12 +410,12 @@ QUY TẮC PHÁT BIỂU:
 2. Đưa ra 1 câu Hook 3s mở đầu giật gân, đánh trúng tâm lý người xem về "{topic}".
 3. Nêu cấu trúc 4 bước giữ chân: Hiện tượng -> Thử nghiệm -> Bản chất vi mô -> Ứng dụng thực tế.
 4. Tag hỏi anh {thumb_name}: "Góc này visual 3D hoặc tương phản màu sắc làm thế nào để kéo CTR cao anh?"
-5. Xưng "em", gọi Thumbnail Agent là "anh {thumb_name}". Nói chuyện gãy gọn, ngắn gọn dưới 80 từ.
+5. Xưng "em", gọi Thumbnail Agent là "anh {thumb_name}". Nói chuyện gãy gọn, ngắn gọn dưới 80 từ, câu cú hoàn chỉnh.
 """
         market_res = await llm_client.chat_completion(
             messages=[{"role": "user", "content": market_prompt}],
             temperature=0.7,
-            max_tokens=300
+            max_tokens=800
         )
         market_text = strip_think_tags(market_res.get("content", f"Chủ đề '{topic}' có tỷ lệ giữ chân rất cao nếu mở đầu bằng cú Hook nghịch lý!"))
         await send_split_message(target_ch_market, f"📊🚀 **[{market_name}]**:\n\n{market_text}")
@@ -446,12 +446,12 @@ QUY TẮC PHÁT BIỂU:
 1. BẮT BUỘC BÁM SÁT 100% CHỦ ĐỀ "{topic}".
 2. Đưa ra 1 concept Thumbnail đinh: Bố cục tương phản mạnh (ví dụ: Mặt cắt 3D, phóng đại kính hiển vi, màu sắc năng lượng Xanh - Cam), Text giật tò mò dưới 4 từ.
 3. Tuyên bố: "3 anh em (News, Market, Thumbnail) đã HOÀN TOÀN ĐỒNG THUẬN PHƯƠNG ÁN!" và tag kính mời anh Cả @{bot_name} duyệt lệnh để triển khai!
-4. Giọng điệu nghệ thuật, thực chiến, ngắn gọn dưới 80 từ.
+4. Giọng điệu nghệ thuật, thực chiến, ngắn gọn dưới 80 từ, câu cú trọn vẹn.
 """
         thumb_res = await llm_client.chat_completion(
             messages=[{"role": "user", "content": thumb_prompt}],
             temperature=0.7,
-            max_tokens=300
+            max_tokens=800
         )
         thumb_text = strip_think_tags(thumb_res.get("content", f"Em đã chốt concept Visual 3D siêu thực cho '{topic}'. 3 anh em đã hoàn toàn thống nhất!"))
         await send_split_message(target_ch_thumb, f"🎨✨ **[{thumb_name}]**:\n\n{thumb_text}")
