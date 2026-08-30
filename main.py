@@ -52,6 +52,10 @@ from services.chat_logger import chat_logger
 from services.dashboard_server import start_dashboard_server
 from services.script_generator import script_generator
 from services.channel_auditor import channel_auditor
+from services.image_service import image_service
+from services.video_assembler import video_assembler
+from services.growth_experiments import growth_experiments
+from services.scene_repair import scene_repair_studio
 from agents.orchestrator import orchestrator
 
 # Khóa đồng bộ pipeline ngăn chạy chồng chéo
@@ -742,6 +746,202 @@ async def execute_image_generation(initiator_user: discord.User, channel, prompt
     except Exception as e:
         await channel.send(f"⚠️ Có lỗi trong quá trình vẽ ảnh: {e}")
 
+async def execute_video_render(initiator_user: discord.User, channel: discord.abc.Messageable, topic: str, voice: str = "nam_tram"):
+    """
+    Tự động viết kịch bản, lồng tiếng AI chuẩn Studio tiếng Việt, vẽ ảnh 9:16 và dùng FFmpeg ghép thành video Shorts hoàn chỉnh!
+    """
+    is_dm = isinstance(channel, discord.DMChannel)
+    clean_topic = topic.replace("dựng video", "").replace("render video", "").replace("tạo video", "").strip() or f"{NICHE_TOPIC}: Khám phá kỳ thú"
+
+    loading_msg = await channel.send(f"🎬🚀 **[Video Factory Engine]**: Đang khởi động dây chuyền sản xuất video Shorts cho chủ đề **'{clean_topic}'**...\n*(Bước 1/3: Viết phân cảnh & Lồng tiếng AI)* ⏳")
+
+    try:
+        # Bước 1: Tạo kịch bản phân cảnh
+        script_res = await script_generator.generate_script_from_market(
+            topic=clean_topic,
+            format_type="Shorts 60s (Dọc 9:16)"
+        )
+        content = script_res.get("content", "")
+
+        # Trích xuất 3-4 phân cảnh từ kịch bản hoặc yêu cầu LLM phân nhỏ
+        parse_prompt = f"""Dưới đây là kịch bản video Shorts:
+{content[:1500]}
+
+Hãy trích xuất chính xác từ 3 đến 4 phân cảnh thành định dạng JSON mảng danh sách:
+[
+  {{"scene": 1, "voiceover": "Lời đọc tiếng Việt của cảnh 1 (2-3 câu)", "visual_prompt": "Prompt tiếng Anh vẽ ảnh cảnh 1"}},
+  {{"scene": 2, "voiceover": "Lời đọc tiếng Việt của cảnh 2 (2-3 câu)", "visual_prompt": "Prompt tiếng Anh vẽ ảnh cảnh 2"}},
+  {{"scene": 3, "voiceover": "Lời đọc tiếng Việt của cảnh 3 (2-3 câu)", "visual_prompt": "Prompt tiếng Anh vẽ ảnh cảnh 3"}}
+]
+Chỉ trả về JSON thuần."""
+        
+        parse_res = await llm_client.chat_completion(
+            messages=[{"role": "user", "content": parse_prompt}],
+            temperature=0.3,
+            max_tokens=1000
+        )
+        parsed_str = strip_think_tags(parse_res.get("content", ""))
+        scenes = []
+        if "[" in parsed_str and "]" in parsed_str:
+            json_arr = parsed_str[parsed_str.find("["):parsed_str.rfind("]") + 1]
+            scenes = json.loads(json_arr)
+
+        if not scenes:
+            scenes = [
+                {"voiceover": f"Bạn có bao giờ tự hỏi về bí ẩn đằng sau {clean_topic}?", "visual_prompt": f"Dramatic cinematic view of {clean_topic}, 8k"},
+                {"voiceover": f"Ở góc độ khoa học, hiện tượng {clean_topic} diễn ra vô cùng kỳ thú và bất ngờ.", "visual_prompt": f"3D scientific particle simulation of {clean_topic}, glowing lighting"},
+                {"voiceover": f"Hiểu được bản chất của {clean_topic} giúp chúng ta khám phá quy luật tự nhiên!", "visual_prompt": f"Epic realistic scientific illustration of {clean_topic}, 8k vertical 9:16"}
+            ]
+
+        await loading_msg.edit(content=f"🎬🎨 **[Video Factory Engine]**: Đã lên {len(scenes)} phân cảnh! Đang lồng tiếng AI & vẽ ảnh 9:16 & ghép FFmpeg...\n*(Bước 2/3: Ghép video hoàn chỉnh)* ⏳")
+
+        # Bước 2: Dựng video hoàn chỉnh
+        render_res = await video_assembler.create_short_video_from_scenes(
+            topic=clean_topic,
+            scenes=scenes,
+            voice=voice
+        )
+
+        if render_res.get("status") != "success":
+            await channel.send(f"⚠️ Không thể render video: {render_res.get('message')}")
+            return
+
+        final_path = render_res["video_path"]
+        video_fn = render_res["video_filename"]
+        file_size = render_res.get("file_size_mb", 0)
+
+        video_file = discord.File(final_path, filename=video_fn)
+        embed = discord.Embed(
+            title=f"🎬 VIDEO SHORTS XUẤT XƯỞNG: {clean_topic[:45]}",
+            description=f"✨ **Dây chuyền tự động:** Kịch bản $\\rightarrow$ Giọng đọc AI Studio $\\rightarrow$ Ảnh 9:16 $\\rightarrow$ Ghép FFmpeg\n\n"
+                        f"📊 **Thông số video:**\n"
+                        f"• 📐 **Tỷ lệ:** `9:16 (Shorts / TikTok / Reels)`\n"
+                        f"• 🎬 **Số phân cảnh:** `{render_res.get('scenes_count', 3)} cảnh`\n"
+                        f"• 📦 **Dung lượng:** `{file_size} MB`\n"
+                        f"• 🎙️ **Giọng đọc:** `vi-VN-NamMinhNeural (Studio AI)`\n\n"
+                        f"👉 *Đại ca có thể tải trực tiếp file .mp4 bên dưới về điện thoại hoặc máy tính để đăng ngay nhé!*",
+            color=COLOR_ORCHESTRATOR
+        )
+        embed.set_footer(text=f"Sản xuất bởi Video Factory • Yêu cầu bởi {initiator_user.name}")
+        await channel.send(embed=embed, file=video_file)
+
+        try:
+            await loading_msg.delete()
+        except Exception:
+            pass
+
+        channel_display_name = "Direct Message (DM)" if is_dm else f"#{getattr(channel, 'name', 'server-channel')}"
+        chat_logger.log_chat(
+            context_type="DM" if is_dm else "Channel",
+            channel_name=channel_display_name,
+            user_id=str(initiator_user.id),
+            user_name=initiator_user.name,
+            bot_name="Video Factory",
+            bot_role="Video Assembler",
+            user_message=f"Dựng video: {clean_topic}",
+            bot_response=f"🎬 Đã xuất bản video Shorts MP4 ({file_size} MB): {video_fn}"
+        )
+    except Exception as e:
+        await channel.send(f"⚠️ Có lỗi trong quá trình dựng video: {e}")
+
+async def execute_ab_experiment(initiator_user: discord.User, channel: discord.abc.Messageable, topic: str):
+    """
+    Sinh 2 chiến lược đối kháng Title & Thumbnail A/B Testing.
+    """
+    is_dm = isinstance(channel, discord.DMChannel)
+    clean_topic = topic.replace("ab test", "").replace("a/b", "").replace("thử nghiệm", "").strip() or f"{NICHE_TOPIC}: Khám phá mới"
+
+    loading_msg = await channel.send(f"⚖️🧪 **[A/B Growth Studio]**: Đang thiết kế 2 chiến lược đối kháng Title & Thumbnail cho **'{clean_topic}'**... ⏳")
+    try:
+        res = await growth_experiments.generate_ab_experiment(clean_topic)
+        arm_a = res.get("arm_a", {})
+        arm_b = res.get("arm_b", {})
+        rec = res.get("recommendation", "")
+
+        embed = discord.Embed(
+            title=f"⚖️ THỬ NGHIỆM A/B TESTING: {clean_topic[:45]}",
+            description=f"Chiến lược đóng gói video đối kháng tối ưu hóa CTR & Giữ chân khán giả:",
+            color=COLOR_MARKET
+        )
+
+        embed.add_field(
+            name="🔵 CHIẾN LƯỢC ARM A: TÒ MÒ & NGHỊCH LÝ",
+            value=f"📌 **Tiêu đề:** {arm_a.get('title_vn')}\n"
+                  f"🎯 **Hook 3s:** *\"{arm_a.get('hook_3s')}\"*\n"
+                  f"🎨 **Thumbnail Prompt:**\n```{arm_a.get('thumbnail_prompt')}```\n",
+            inline=False
+        )
+
+        embed.add_field(
+            name="🔴 CHIẾN LƯỢC ARM B: KỊCH TÍNH & CẢNH BÁO",
+            value=f"📌 **Tiêu đề:** {arm_b.get('title_vn')}\n"
+                  f"🎯 **Hook 3s:** *\"{arm_b.get('hook_3s')}\"*\n"
+                  f"🎨 **Thumbnail Prompt:**\n```{arm_b.get('thumbnail_prompt')}```\n",
+            inline=False
+        )
+
+        if rec:
+            embed.add_field(
+                name="💡 ĐÁNH GIÁ KHUYẾN NGHỊ CHUYÊN GIA",
+                value=f"> {rec}",
+                inline=False
+            )
+
+        embed.set_footer(text=f"Yêu cầu bởi {initiator_user.name} • Growth Studio")
+        await channel.send(embed=embed)
+        try:
+            await loading_msg.delete()
+        except Exception:
+            pass
+
+        channel_display_name = "Direct Message (DM)" if is_dm else f"#{getattr(channel, 'name', 'server-channel')}"
+        chat_logger.log_chat(
+            context_type="DM" if is_dm else "Channel",
+            channel_name=channel_display_name,
+            user_id=str(initiator_user.id),
+            user_name=initiator_user.name,
+            bot_name="Market Agent",
+            bot_role="Growth Studio",
+            user_message=f"A/B Test: {clean_topic}",
+            bot_response=f"⚖️ Đã xuất 2 phương án A/B: '{arm_a.get('title_vn')}' VS '{arm_b.get('title_vn')}'"
+        )
+    except Exception as e:
+        await channel.send(f"⚠️ Lỗi khi chạy A/B testing: {e}")
+
+async def execute_scene_repair(initiator_user: discord.User, channel: discord.abc.Messageable, topic: str, scene_number: int, instruction: str):
+    """
+    Sửa riêng biệt 1 phân cảnh.
+    """
+    is_dm = isinstance(channel, discord.DMChannel)
+    loading_msg = await channel.send(f"🛠️🔧 **[Scene Repair Studio]**: Đang tối ưu lại Phân Cảnh {scene_number} cho chủ đề **'{topic}'**... ⏳")
+    try:
+        res = await scene_repair_studio.repair_scene(
+            topic=topic,
+            scene_number=scene_number,
+            current_script="",
+            repair_instruction=instruction
+        )
+        if res.get("status") != "success":
+            await channel.send(f"⚠️ {res.get('message', 'Không thể sửa cảnh.')}")
+            return
+
+        embed = discord.Embed(
+            title=f"🛠️ ĐÃ TỐI ƯU PHÂN CẢNH {scene_number}: {res.get('repaired_title', topic)}",
+            description=f"🎙️ **Lời Thoại Mới (Voiceover):**\n> {res.get('voiceover_vn')}\n\n"
+                        f"🎨 **Prompt Ảnh Mới (9:16):**\n```{res.get('image_prompt_en')}```\n"
+                        f"🎬 **Prompt Chuyển Động Video AI:**\n```{res.get('video_prompt_en')}```\n"
+                        f"💡 **Tóm Tắt Điểm Cải Tiến:**\n* {res.get('repair_summary')}",
+            color=COLOR_THUMBNAIL
+        )
+        embed.set_footer(text=f"Yêu cầu bởi {initiator_user.name} • Scene Repair Studio")
+        await channel.send(embed=embed)
+        try:
+            await loading_msg.delete()
+        except Exception:
+            pass
+    except Exception as e:
+        await channel.send(f"⚠️ Lỗi sửa phân cảnh: {e}")
+
 @orch_bot.event
 async def on_message(message: discord.Message):
     # Bỏ qua tin nhắn từ chính bot hoặc các bot khác
@@ -815,6 +1015,18 @@ async def on_message(message: discord.Message):
             await execute_script_generation(message.author, message.channel, topic=user_text, format_type=fmt)
             return
 
+        # Kiểm tra nếu yêu cầu dựng video / render video hoàn chỉnh
+        render_triggers = ["dựng video", "dung video", "render video", "tạo video shorts", "tao video shorts", "xuất video", "xuat video", "ghép video", "ghep video"]
+        if any(p in user_text.lower() for p in render_triggers):
+            await execute_video_render(message.author, message.channel, topic=user_text)
+            return
+
+        # Kiểm tra nếu yêu cầu A/B testing tiêu đề & thumbnail
+        ab_triggers = ["ab test", "a/b test", "thử nghiệm a/b", "thu nghiem a/b", "so sánh tiêu đề", "so sanh tieu de", "test tiêu đề", "test tieu de"]
+        if any(p in user_text.lower() for p in ab_triggers):
+            await execute_ab_experiment(message.author, message.channel, topic=user_text)
+            return
+
         # Kiểm tra nếu có yêu cầu chốt kế hoạch / hội bàn / phân quyền / trao đổi giữa các bot
         trigger_phrases = [
             "phân quyền", "phan quyen", "trao đổi", "trao doi", "hội bàn", "hoi ban",
@@ -845,7 +1057,7 @@ QUY TẮC BẮT BUỘC (TUYỆT ĐỐI TUÂN THỦ):
 2. **TRÌNH BÀY THOÁNG ĐÃNG, DỄ ĐỌC TRÊN DISCORD (RẤT QUAN TRỌNG):**
    - **Bắt buộc cách 1 dòng trống (`\n\n`)** giữa các ý để người đọc không bị mỏi mắt.
    - Sử dụng đầu mục rõ ràng: `🔹 **1. [Tên ý]:** [Mô tả ngắn gọn trong 1 - 2 câu]`.
-   - KHÔNG dùng ký tự công thức rối mắt như `\(...\)` hay lồng ghép quá nhiều dấu `**`, `*`.
+   - KHÔNG dùng ký tự công thức rối mắt như `\\(...\\)` hay lồng ghép quá nhiều dấu `**`, `*`.
    - Tổng độ dài: Tối đa 3 - 4 ý ngắn gọn, súc tích (dưới 150 từ).
 3. **DẪN CHỨNG & LINK NGUỒN XÁC THỰC:**
    - Khi giải thích hiện tượng khoa học, hãy chèn link nguồn uy tín (Nature, Science, Khan Academy, MIT, Wikipedia...) để người xem bấm vào kiểm chứng.
@@ -919,22 +1131,50 @@ async def orch_start_cmd(interaction: discord.Interaction):
         f"👑 **[{bot_name}]**: Chào đại ca {user_mention}! Em là **Orchestrator** (Anh cả điều phối), hệ thống nghiên cứu niche **{NICHE_TOPIC}** đã sẵn sàng nhận lệnh `/report` để chỉ huy 4 anh em vào việc."
     )
 
+@orch_bot.tree.command(name="render_video", description="[Video Factory] Tự động dựng video Shorts MP4 hoàn chỉnh (kịch bản + giọng đọc AI + ảnh 9:16)")
+@app_commands.describe(
+    topic="Chủ đề video muốn sản xuất (ví dụ: 'Vì sao bầu trời có màu xanh')",
+    voice="Giọng đọc AI: 'nam_tram' (Nam trầm ấm) hoặc 'nu_truyencam' (Nữ truyền cảm)"
+)
+async def render_video_cmd(interaction: discord.Interaction, topic: str, voice: Optional[str] = "nam_tram"):
+    await interaction.response.send_message(f"🎬🚀 **[Video Factory Engine]**: Nhận lệnh dựng video Shorts hoàn chỉnh cho chủ đề: **'{topic}'**! ⏳")
+    await execute_video_render(interaction.user, interaction.channel, topic=topic, voice=voice)
+
+@orch_bot.tree.command(name="ab_test", description="[Growth Studio] Thử nghiệm A/B Testing Title & Thumbnail đối kháng (Arm A vs Arm B)")
+@app_commands.describe(topic="Chủ đề muốn tạo thử nghiệm A/B (ví dụ: 'Bí ẩn hố đen')")
+async def ab_test_cmd(interaction: discord.Interaction, topic: str):
+    await interaction.response.send_message(f"⚖️🧪 **[A/B Growth Studio]**: Nhận lệnh thiết kế thử nghiệm A/B Testing cho: **'{topic}'**! 🚀")
+    await execute_ab_experiment(interaction.user, interaction.channel, topic=topic)
+
+@orch_bot.tree.command(name="sua_canh", description="[Scene Repair] Tối ưu và viết lại riêng biệt 1 phân cảnh kịch bản")
+@app_commands.describe(
+    topic="Chủ đề kịch bản",
+    scene_number="Số thứ tự phân cảnh cần sửa (1, 2, 3, 4)",
+    instruction="Yêu cầu sửa đổi (ví dụ: 'Thêm chi tiết về phân tử nước')"
+)
+async def sua_canh_cmd(interaction: discord.Interaction, topic: str, scene_number: int, instruction: str):
+    await interaction.response.send_message(f"🛠️🔧 **[Scene Repair Studio]**: Đang tối ưu Phân Cảnh {scene_number} theo chỉ đạo: `{instruction}`! ⏳")
+    await execute_scene_repair(interaction.user, interaction.channel, topic=topic, scene_number=scene_number, instruction=instruction)
+
 @orch_bot.tree.command(name="help", description="[Orchestrator] Xem danh sách toàn bộ lệnh của hệ thống")
 async def help_cmd(interaction: discord.Interaction):
     embed = discord.Embed(
         title=f"📋 DANH SÁCH LỆNH HỆ THỐNG — NICHE: {NICHE_TOPIC.upper()}",
-        description=f"Hệ thống nghiên cứu thị trường YouTube Niche **{NICHE_TOPIC}** gồm 5 Bot chuyên biệt:",
+        description=f"Hệ thống nghiên cứu thị trường & sản xuất video YouTube Niche **{NICHE_TOPIC}** gồm 5 Bot chuyên biệt:",
         color=COLOR_ORCHESTRATOR
     )
     embed.add_field(
-        name="🚀 Lệnh Chính",
-        value="• `/ve_anh [chu_de]` — Tự viết Prompt AI & vẽ ảnh minh họa/thumbnail 4K\n"
-              "• `/kichban [topic] [dinh_dang]` — Quét kênh hot/đang lên & viết kịch bản kèm Prompt AI\n"
-              "• `/audit_channel [link/@handle]` — Bóc tách SEO, Thẻ Tag & Prompt AI ảnh kênh\n"
-              "• `/report` — Chạy phân tích cơ hội nội dung YouTube đầy đủ (cần quyền)\n"
-              "• `/hoiban [topic]` — Kích hoạt phiên hội bàn 5 bot tự động trao đổi\n"
-              "• `/quota` — Xem tình trạng quota YouTube API & Groq/LLM API\n"
-              "• `/help` — Xem danh sách lệnh này",
+        name="🚀 Lệnh Sản Xuất Video & Tăng Trưởng Mới (AgentTube Suite)",
+        value="• `/render_video [topic] [voice]` — 🎬 **Dựng video Shorts MP4 tự động** (TTS AI + Ảnh 9:16 + FFmpeg)\n"
+              "• `/ab_test [topic]` — ⚖️ **Thử nghiệm A/B Testing** Title & Thumbnail đối kháng (Arm A vs Arm B)\n"
+              "• `/sua_canh [topic] [scene] [instruction]` — 🛠️ **Sửa riêng biệt 1 phân cảnh** kịch bản\n"
+              "• `/ve_anh [chu_de]` — 🎨 Tự viết Prompt AI & vẽ ảnh minh họa/thumbnail 4K\n"
+              "• `/kichban [topic] [dinh_dang]` — 📝 Quét kênh hot/đang lên & viết kịch bản kèm Quick Copy\n"
+              "• `/audit_channel [link/@handle]` — 🔍 Bóc tách SEO, Thẻ Tag & Prompt AI ảnh kênh\n"
+              "• `/report` — 📊 Chạy phân tích cơ hội nội dung YouTube đầy đủ (cần quyền)\n"
+              "• `/hoiban [topic]` — 👑 Kích hoạt phiên hội bàn 5 bot tự động trao đổi\n"
+              "• `/quota` — 🛡️ Xem tình trạng quota YouTube API & Groq/LLM API\n"
+              "• `/help` — 📋 Xem danh sách lệnh này",
         inline=False
     )
     embed.add_field(

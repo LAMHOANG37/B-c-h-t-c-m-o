@@ -3,26 +3,27 @@ import json
 import asyncio
 from datetime import datetime
 from aiohttp import web
-from config import NICHE_TOPIC, DAILY_RUN_TIME, DAILY_RUN_TIMEZONE, LLM_PROVIDER
+from config import NICHE_TOPIC, DAILY_RUN_TIME, DAILY_RUN_TIMEZONE, LLM_PROVIDER, BASE_DIR
 from services.quota_tracker import quota_tracker
 from services.chat_logger import chat_logger
+from services.growth_experiments import growth_experiments
 
 HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 4 AI - Control Hub & Quota Monitor</title>
+    <title>AI 4 AI - Production Studio & Quota Hub</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-primary: #07090e;
-            --bg-card: rgba(15, 21, 34, 0.85);
-            --bg-card-hover: rgba(22, 31, 51, 0.95);
+            --bg-primary: #06080e;
+            --bg-card: rgba(13, 18, 30, 0.85);
+            --bg-card-hover: rgba(20, 28, 46, 0.95);
             --border-color: rgba(255, 255, 255, 0.08);
-            --border-glow: rgba(139, 92, 246, 0.35);
+            --border-glow: rgba(139, 92, 246, 0.4);
             --accent-purple: #8b5cf6;
             --accent-blue: #3b82f6;
             --accent-cyan: #06b6d4;
@@ -52,13 +53,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }
 
         header {
-            background: rgba(7, 9, 14, 0.85);
+            background: rgba(6, 8, 14, 0.9);
             backdrop-filter: blur(16px);
             border-bottom: 1px solid var(--border-color);
             position: sticky;
             top: 0;
             z-index: 50;
-            padding: 1rem 2rem;
+            padding: 0.85rem 2rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -71,19 +72,19 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }
 
         .brand-logo {
-            width: 44px;
-            height: 44px;
+            width: 42px;
+            height: 42px;
             border-radius: 12px;
             background: linear-gradient(135deg, var(--accent-purple), var(--accent-groq));
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.4rem;
+            font-size: 1.35rem;
             box-shadow: 0 0 25px rgba(249, 115, 22, 0.35);
         }
 
         .brand-title {
-            font-size: 1.25rem;
+            font-size: 1.2rem;
             font-weight: 800;
             letter-spacing: -0.02em;
             background: linear-gradient(to right, #ffffff, #cbd5e1);
@@ -92,653 +93,363 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }
 
         .brand-subtitle {
-            font-size: 0.8rem;
+            font-size: 0.78rem;
             color: var(--text-muted);
             font-weight: 500;
         }
 
         .header-badges {
             display: flex;
+            gap: 0.6rem;
             align-items: center;
-            gap: 0.75rem;
         }
 
         .badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
-            padding: 0.4rem 0.8rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            padding: 0.35rem 0.75rem;
             border-radius: 9999px;
             font-size: 0.75rem;
             font-weight: 600;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            color: var(--text-muted);
         }
 
-        .badge-live {
-            background: rgba(16, 185, 129, 0.15);
-            border-color: rgba(16, 185, 129, 0.3);
-            color: #34d399;
-        }
-
-        .badge-live::before {
-            content: '';
+        .badge-dot {
             width: 7px;
             height: 7px;
             border-radius: 50%;
-            background: #10b981;
-            box-shadow: 0 0 10px #10b981;
-            animation: pulse 2s infinite;
+            background-color: var(--accent-green);
+            box-shadow: 0 0 8px var(--accent-green);
         }
 
-        @keyframes pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.4; transform: scale(0.85); }
-        }
-
-        .container {
-            max-width: 1400px;
-            width: 100%;
-            margin: 0 auto;
-            padding: 2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 2rem;
-        }
-
-        /* SECTION TITLE */
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: -0.5rem;
-        }
-
-        .section-title {
-            font-size: 1.15rem;
-            font-weight: 800;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            letter-spacing: -0.01em;
-        }
-
-        /* QUOTA VISUAL PANELS GRID */
-        /* QUOTA VISUAL PANELS GRID */
-        .quota-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-            gap: 1.5rem;
-        }
-
-        .quota-card {
-            background: var(--bg-card);
-            backdrop-filter: blur(14px);
-            border: 1px solid var(--border-color);
-            border-radius: 20px;
-            padding: 1.5rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1.25rem;
-            position: relative;
-            overflow: hidden;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-        }
-
-        .quota-card-groq {
-            border-top: 3px solid var(--accent-groq);
-        }
-
-        .quota-card-gemini {
-            border-top: 3px solid #3b82f6;
-        }
-
-        .quota-card-yt {
-            border-top: 3px solid var(--accent-rose);
-        }
-
-        .quota-card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .quota-title-box {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .quota-icon {
-            width: 38px;
-            height: 38px;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.25rem;
-        }
-
-        .icon-groq {
-            background: rgba(249, 115, 22, 0.15);
-            border: 1px solid rgba(249, 115, 22, 0.3);
-            color: #fb923c;
-        }
-
-        .icon-gemini {
-            background: rgba(59, 130, 246, 0.15);
-            border: 1px solid rgba(59, 130, 246, 0.3);
-            color: #60a5fa;
-        }
-
-        .icon-yt {
-            background: rgba(244, 63, 94, 0.15);
-            border: 1px solid rgba(244, 63, 94, 0.3);
-            color: #fb7185;
-        }
-
-        .quota-name {
-            font-size: 1.05rem;
-            font-weight: 700;
-            color: #ffffff;
-        }
-
-        .quota-model-sub {
-            font-size: 0.78rem;
-            color: var(--text-muted);
-            font-family: 'JetBrains Mono', monospace;
-        }
-
-        /* PROGRESS BARS */
-        .progress-block {
-            display: flex;
-            flex-direction: column;
-            gap: 0.45rem;
-        }
-
-        .progress-label-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.82rem;
-            font-weight: 600;
-        }
-
-        .progress-label {
-            color: var(--text-muted);
-        }
-
-        .progress-value-badge {
-            font-family: 'JetBrains Mono', monospace;
-            font-weight: 700;
-            color: #ffffff;
-        }
-
-        .progress-bar-bg {
-            width: 100%;
-            height: 10px;
-            background: rgba(255, 255, 255, 0.06);
-            border-radius: 9999px;
-            overflow: hidden;
-            position: relative;
-        }
-
-        .progress-bar-fill {
-            height: 100%;
-            border-radius: 9999px;
-            transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .fill-groq-req {
-            background: linear-gradient(90deg, #f97316, #fb923c);
-            box-shadow: 0 0 10px rgba(249, 115, 22, 0.5);
-        }
-
-        .fill-groq-tok {
-            background: linear-gradient(90deg, #8b5cf6, #c084fc);
-            box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
-        }
-
-        .fill-gemini {
-            background: linear-gradient(90deg, #2563eb, #38bdf8);
-            box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
-        }
-
-        .fill-yt {
-            background: linear-gradient(90deg, #ef4444, #f43f5e);
-            box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
-        }
-
-        /* QUOTA INFO GRID */
-        .quota-stats-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 0.75rem;
-            background: rgba(0, 0, 0, 0.25);
-            border-radius: 12px;
-            padding: 0.875rem 1rem;
-            border: 1px solid rgba(255, 255, 255, 0.04);
-        }
-
-        .stat-item {
-            display: flex;
-            flex-direction: column;
-            gap: 0.2rem;
-        }
-
-        .stat-label {
-            font-size: 0.72rem;
-            color: var(--text-dim);
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            font-weight: 600;
-        }
-
-        .stat-val {
-            font-size: 0.92rem;
-            font-weight: 700;
-            color: #e2e8f0;
-            font-family: 'JetBrains Mono', monospace;
-        }
-
-        /* SUMMARY METRICS ROW */
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 1.25rem;
-        }
-
-        .metric-card {
-            background: var(--bg-card);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 1.25rem 1.5rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.4rem;
-            transition: all 0.2s ease;
-        }
-
-        .metric-card:hover {
-            border-color: var(--border-glow);
-            transform: translateY(-2px);
-        }
-
-        .metric-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.78rem;
-            font-weight: 600;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .metric-value {
-            font-size: 1.85rem;
-            font-weight: 800;
-            letter-spacing: -0.03em;
-            color: #ffffff;
-        }
-
-        .metric-footer {
-            font-size: 0.8rem;
-            color: var(--text-dim);
-        }
-
-        /* CARD FOR CHAT LOGS */
-        .card {
-            background: var(--bg-card);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--border-color);
-            border-radius: 20px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .card-header {
-            padding: 1.25rem 1.75rem;
+        /* Studio Navigation Tabs */
+        .studio-nav {
+            background: rgba(13, 18, 30, 0.7);
             border-bottom: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
-
-        .card-title {
-            font-size: 1.1rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
-        }
-
-        .controls-group {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            flex-wrap: wrap;
-        }
-
-        .search-box {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
-            padding: 0.5rem 0.875rem;
-            color: var(--text-main);
-            font-size: 0.875rem;
-            font-family: inherit;
-            outline: none;
-            width: 240px;
-            transition: all 0.2s;
-        }
-
-        .search-box:focus {
-            border-color: var(--accent-purple);
-            background: rgba(255, 255, 255, 0.08);
-            box-shadow: 0 0 12px rgba(139, 92, 246, 0.2);
-        }
-
-        .select-filter {
-            background: #161f30;
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
-            padding: 0.5rem 0.875rem;
-            color: var(--text-main);
-            font-size: 0.875rem;
-            font-family: inherit;
-            outline: none;
-            cursor: pointer;
-        }
-
-        .btn {
-            background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
-            color: white;
-            border: none;
-            border-radius: 10px;
-            padding: 0.55rem 1.1rem;
-            font-size: 0.875rem;
-            font-weight: 600;
-            font-family: inherit;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
-            transition: all 0.2s;
-        }
-
-        .btn:hover {
-            opacity: 0.92;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.35);
-        }
-
-        .btn-secondary {
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid var(--border-color);
-            color: var(--text-main);
-        }
-
-        .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.12);
-            box-shadow: none;
-        }
-
-        /* CHAT TIMELINE */
-        .chat-feed {
-            padding: 1.5rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1.25rem;
-            max-height: 680px;
-            overflow-y: auto;
-        }
-
-        .chat-feed::-webkit-scrollbar { width: 6px; }
-        .chat-feed::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.15);
-            border-radius: 4px;
-        }
-
-        .chat-item {
-            background: rgba(255, 255, 255, 0.025);
-            border: 1px solid var(--border-color);
-            border-radius: 14px;
-            padding: 1.25rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.875rem;
-            transition: all 0.2s ease;
-        }
-
-        .chat-item:hover {
-            background: rgba(255, 255, 255, 0.045);
-            border-color: rgba(255, 255, 255, 0.15);
-        }
-
-        .chat-item-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-        }
-
-        .user-tag-info {
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
-        }
-
-        .user-avatar-badge {
-            width: 32px;
-            height: 32px;
-            border-radius: 8px;
-            background: linear-gradient(135deg, #4f46e5, #06b6d4);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 0.9rem;
-            color: #ffffff;
-        }
-
-        .user-name-text {
-            font-weight: 700;
-            font-size: 0.95rem;
-            color: #f1f5f9;
-        }
-
-        .user-id-sub {
-            font-size: 0.75rem;
-            color: var(--text-dim);
-            font-family: 'JetBrains Mono', monospace;
-        }
-
-        .chat-badges {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .badge-channel {
-            background: rgba(59, 130, 246, 0.12);
-            color: #60a5fa;
-            border: 1px solid rgba(59, 130, 246, 0.25);
-            font-size: 0.72rem;
-            padding: 0.2rem 0.5rem;
-            border-radius: 6px;
-            font-weight: 600;
-        }
-
-        .badge-bot {
-            background: rgba(139, 92, 246, 0.15);
-            color: #c084fc;
-            border: 1px solid rgba(139, 92, 246, 0.3);
-            font-size: 0.72rem;
-            padding: 0.2rem 0.5rem;
-            border-radius: 6px;
-            font-weight: 600;
-        }
-
-        .chat-time {
-            font-size: 0.75rem;
-            color: var(--text-dim);
-            font-family: 'JetBrains Mono', monospace;
-        }
-
-        .msg-bubble-user {
-            background: rgba(255, 255, 255, 0.04);
-            border-left: 3px solid var(--accent-blue);
-            border-radius: 0 10px 10px 0;
-            padding: 0.75rem 1rem;
-            font-size: 0.92rem;
-            color: #e2e8f0;
-            line-height: 1.5;
-        }
-
-        .msg-bubble-bot {
-            background: rgba(139, 92, 246, 0.06);
-            border-left: 3px solid var(--accent-purple);
-            border-radius: 0 10px 10px 0;
-            padding: 0.875rem 1.1rem;
-            font-size: 0.92rem;
-            color: #f8fafc;
-            line-height: 1.6;
-            white-space: pre-wrap;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 3.5rem 1rem;
-            color: var(--text-dim);
-            font-size: 0.95rem;
-        }
-
-        /* TABS */
-        .tab-buttons {
+            padding: 0.5rem 2rem;
             display: flex;
             gap: 0.5rem;
-            border-bottom: 1px solid var(--border-color);
-            padding: 0 1.5rem;
+            overflow-x: auto;
         }
 
-        .tab-btn {
+        .nav-tab {
             background: transparent;
             border: none;
             color: var(--text-muted);
+            padding: 0.6rem 1.1rem;
+            border-radius: 10px;
+            font-size: 0.85rem;
             font-weight: 600;
-            font-size: 0.9rem;
-            padding: 1rem 1.25rem;
             cursor: pointer;
-            position: relative;
-            transition: all 0.2s;
-        }
-
-        .tab-btn.active {
-            color: var(--accent-purple);
-        }
-
-        .tab-btn.active::after {
-            content: '';
-            position: absolute;
-            bottom: -1px;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background: var(--accent-purple);
-            box-shadow: 0 0 10px var(--accent-purple);
-        }
-
-        .tab-pane { display: none; }
-        .tab-pane.active { display: block; }
-
-        /* REPORTS LIST */
-        .reports-list {
-            padding: 1.5rem;
             display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-        }
-
-        .report-card {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 1rem 1.25rem;
-            display: flex;
-            justify-content: space-between;
             align-items: center;
-            transition: all 0.2s;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
         }
 
-        .report-card:hover {
+        .nav-tab:hover {
             background: rgba(255, 255, 255, 0.05);
-            border-color: var(--border-glow);
+            color: var(--text-main);
         }
 
-        .report-name {
-            font-weight: 600;
-            font-size: 0.95rem;
-            color: #f1f5f9;
-            font-family: 'JetBrains Mono', monospace;
+        .nav-tab.active {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(59, 130, 246, 0.25));
+            color: #ffffff;
+            border: 1px solid rgba(139, 92, 246, 0.5);
+            box-shadow: 0 0 15px rgba(139, 92, 246, 0.2);
         }
 
-        .report-date {
-            font-size: 0.8rem;
-            color: var(--text-dim);
-        }
-
-        /* MODAL */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(0, 0, 0, 0.75);
-            backdrop-filter: blur(8px);
-            z-index: 100;
-            align-items: center;
-            justify-content: center;
-            padding: 2rem;
-        }
-
-        .modal.open { display: flex; }
-
-        .modal-content {
-            background: #0f172a;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 20px;
-            max-width: 900px;
+        main {
+            flex: 1;
+            padding: 1.75rem 2rem;
+            max-width: 1600px;
+            margin: 0 auto;
             width: 100%;
-            max-height: 85vh;
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Grid Layouts */
+        .grid-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 1.75rem;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.35rem;
+            backdrop-filter: blur(12px);
+            transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            border-color: var(--border-glow);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-title {
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-dim);
+            margin-bottom: 0.5rem;
             display: flex;
-            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .card-value {
+            font-size: 1.8rem;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+            color: #ffffff;
+            display: flex;
+            align-items: baseline;
+            gap: 0.35rem;
+        }
+
+        .card-desc {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.07);
+            border-radius: 9999px;
+            margin-top: 0.75rem;
             overflow: hidden;
         }
 
-        .modal-header {
-            padding: 1.25rem 1.5rem;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .progress-fill {
+            height: 100%;
+            border-radius: 9999px;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .modal-body {
+        /* Studio Video Grid */
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .video-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .video-wrapper {
+            position: relative;
+            background: #000;
+            width: 100%;
+            aspect-ratio: 9/16;
+            max-height: 480px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .video-wrapper video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .video-info {
+            padding: 1rem;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .video-title {
+            font-weight: 700;
+            font-size: 0.95rem;
+            margin-bottom: 0.35rem;
+            color: #ffffff;
+        }
+
+        .video-meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        /* A/B Test Arm Cards */
+        .ab-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .arm-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
             padding: 1.5rem;
-            overflow-y: auto;
-            font-size: 0.9rem;
-            line-height: 1.6;
-            color: #cbd5e1;
-            white-space: pre-wrap;
+        }
+
+        .arm-badge {
+            display: inline-block;
+            padding: 0.25rem 0.65rem;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.75rem;
+            margin-bottom: 0.85rem;
+        }
+
+        .arm-a { background: rgba(59, 130, 246, 0.2); color: var(--accent-blue); border: 1px solid var(--accent-blue); }
+        .arm-b { background: rgba(244, 63, 94, 0.2); color: var(--accent-rose); border: 1px solid var(--accent-rose); }
+
+        /* Prompt Box */
+        .prompt-box {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 0.85rem;
             font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: #cbd5e1;
+            margin-top: 0.75rem;
+            word-break: break-word;
+            position: relative;
+        }
+
+        .btn-copy {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #fff;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            cursor: pointer;
+        }
+
+        .btn-copy:hover { background: var(--accent-purple); }
+
+        /* Gallery Grid */
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.25rem;
+        }
+
+        .gallery-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            overflow: hidden;
+            transition: transform 0.2s;
+        }
+
+        .gallery-item:hover { transform: scale(1.02); }
+        .gallery-item img { width: 100%; height: auto; display: block; }
+        .gallery-caption { padding: 0.75rem; font-size: 0.8rem; color: var(--text-muted); }
+
+        /* Live Chat Table */
+        .chat-feed {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            max-height: 650px;
+            overflow-y: auto;
+        }
+
+        .chat-msg {
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 0.85rem 1.1rem;
+        }
+
+        .msg-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            margin-bottom: 0.35rem;
+        }
+
+        .bot-tag {
+            font-weight: 700;
+            color: var(--accent-purple);
+        }
+
+        .msg-text {
+            font-size: 0.88rem;
+            line-height: 1.5;
+            color: #e2e8f0;
+            white-space: pre-wrap;
+        }
+
+        /* Action Buttons */
+        .btn-action {
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
+            border: none;
+            color: #fff;
+            padding: 0.6rem 1.25rem;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .btn-action:hover {
+            box-shadow: 0 0 20px rgba(139, 92, 246, 0.4);
+            transform: translateY(-1px);
+        }
+
+        input[type="text"] {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border-color);
+            color: #fff;
+            padding: 0.6rem 1rem;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            outline: none;
+            width: 100%;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--accent-purple);
+        }
+
+        @media (max-width: 900px) {
+            .ab-container { grid-template-columns: 1fr; }
+            header { flex-direction: column; gap: 0.85rem; }
         }
     </style>
 </head>
@@ -747,470 +458,323 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         <div class="brand">
             <div class="brand-logo">⚡</div>
             <div>
-                <div class="brand-title">AI 4 AI • Control Hub</div>
-                <div class="brand-subtitle">Trung Tâm Quản Lý Quota & Lịch Sử Tương Tác Bot</div>
+                <div class="brand-title">AI 4 AI • PRODUCTION STUDIO</div>
+                <div class="brand-subtitle">Niche: __NICHE_TOPIC__</div>
             </div>
         </div>
-
         <div class="header-badges">
-            <div class="badge badge-live">5 BOTS ACTIVE</div>
-            <div class="badge" style="border-color: rgba(249, 115, 22, 0.3); color: #fb923c;">
-                ⚡ Groq: <strong>openai/gpt-oss-120b</strong>
-            </div>
-            <div class="badge" style="border-color: rgba(139, 92, 246, 0.3); color: #c084fc;">
-                🚀 Niche: <strong>__NICHE_TOPIC__</strong>
-            </div>
-            <div class="badge" style="color: #94a3b8;">
-                ⏰ Lịch Chạy: <strong>__DAILY_RUN_TIME__</strong>
-            </div>
+            <div class="badge"><span class="badge-dot"></span> 5 Bot Live</div>
+            <div class="badge">⚙️ Lịch: __DAILY_RUN_TIME__</div>
+            <div class="badge" style="color: var(--accent-groq);">⚡ Gemini 3.6 Flash Engine</div>
         </div>
     </header>
 
-    <div class="container">
-        <!-- SECTION 1: VISUAL QUOTA PANELS -->
-        <div class="section-header">
-            <div class="section-title">
-                <span>⚡ Bảng Giám Sát Hạn Mức API Thời Gian Thực (Live Quota Gauges)</span>
+    <!-- Studio Nav Tabs -->
+    <nav class="studio-nav">
+        <button class="nav-tab active" onclick="switchTab('overview')">📊 Tổng Quan & Quota</button>
+        <button class="nav-tab" onclick="switchTab('videos')">🎬 Video Shorts Player</button>
+        <button class="nav-tab" onclick="switchTab('ab-testing')">⚖️ A/B Testing Studio</button>
+        <button class="nav-tab" onclick="switchTab('scripts')">📝 Kịch Bản & Quick Copy</button>
+        <button class="nav-tab" onclick="switchTab('gallery')">🎨 Visual 4K Gallery</button>
+        <button class="nav-tab" onclick="switchTab('chats')">💬 Live Discord Feed</button>
+    </nav>
+
+    <main>
+        <!-- TAB 1: OVERVIEW -->
+        <div id="tab-overview" class="tab-content active">
+            <div class="grid-cards">
+                <div class="card">
+                    <div class="card-title"><span>Google Gemini Quota (RPD)</span> <span>⚡</span></div>
+                    <div class="card-value" id="gemini-requests">-- <span style="font-size: 1rem; color: var(--text-dim)">/ 1500</span></div>
+                    <div class="progress-container"><div class="progress-fill" id="gemini-progress" style="width: 0%"></div></div>
+                    <div class="card-desc" id="gemini-desc">Còn lại -- lượt gọi miễn phí hôm nay</div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title"><span>YouTube Data API (Units)</span> <span>📺</span></div>
+                    <div class="card-value" id="yt-units">-- <span style="font-size: 1rem; color: var(--text-dim)">/ 10000</span></div>
+                    <div class="progress-container"><div class="progress-fill" id="yt-progress" style="width: 0%; background: linear-gradient(90deg, var(--accent-rose), var(--accent-amber));"></div></div>
+                    <div class="card-desc" id="yt-desc">Đã tiêu hao -- units</div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title"><span>Độ Trễ Phản Hồi TB</span> <span>⏱️</span></div>
+                    <div class="card-value" id="avg-latency" style="color: var(--accent-green)">-- ms</div>
+                    <div class="card-desc">Tốc độ xử lý siêu tốc qua Flash LPU</div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title"><span>Tổng Tương Tác Bot</span> <span>🤖</span></div>
+                    <div class="card-value" id="total-chats" style="color: var(--accent-purple)">--</div>
+                    <div class="card-desc">Tin nhắn và phân tích đã thực hiện</div>
+                </div>
             </div>
-            <span class="badge badge-live" style="font-size: 0.72rem;">Live Auto-sync 3s</span>
+
+            <!-- Quick Action Studio -->
+            <div class="card" style="margin-top: 1rem;">
+                <h3 style="font-size: 1rem; margin-bottom: 1rem; color: #fff;">🚀 Studio Quick Actions (Lệnh Thực Thi Nhanh)</h3>
+                <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 250px;">
+                        <input type="text" id="quick-topic" placeholder="Nhập chủ đề (vd: Vì sao bầu trời có màu xanh)...">
+                    </div>
+                    <button class="btn-action" onclick="runABTest()"><span style="font-size: 1.1rem;">⚖️</span> Chạy A/B Testing Studio</button>
+                    <button class="btn-action" style="background: linear-gradient(135deg, var(--accent-groq), var(--accent-rose));" onclick="switchTab('videos')">🎬 Xem Kho Video Shorts</button>
+                </div>
+            </div>
         </div>
 
-        <div class="quota-grid">
-            <!-- GROQ API QUOTA CARD -->
-            <div class="quota-card quota-card-groq">
-                <div class="quota-card-header">
-                    <div class="quota-title-box">
-                        <div class="quota-icon icon-groq">🧠</div>
-                        <div>
-                            <div class="quota-name">Groq LLM Engine (gpt-oss-120b)</div>
-                            <div class="quota-model-sub">Rate Limits & Hạn Mức Tốc Độ Tức Thì</div>
+        <!-- TAB 2: VIDEOS -->
+        <div id="tab-videos" class="tab-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                <h2 style="font-size: 1.25rem; font-weight: 800;">🎬 Kho Video Shorts Đã Dựng Hoàn Chỉnh (9:16)</h2>
+                <button class="btn-action" onclick="fetchVideos()">🔄 Làm Mới Video</button>
+            </div>
+            <div class="video-grid" id="video-list">
+                <div style="color: var(--text-muted); font-size: 0.9rem;">Đang tải danh sách video...</div>
+            </div>
+        </div>
+
+        <!-- TAB 3: A/B TESTING -->
+        <div id="tab-ab-testing" class="tab-content">
+            <h2 style="font-size: 1.25rem; font-weight: 800; margin-bottom: 0.5rem;">⚖️ Phòng Thí Nghiệm Tăng Trưởng (A/B Testing Studio)</h2>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.25rem;">So sánh 2 chiến lược đóng gói đối kháng: <strong>Arm A (Tò Mò Nghịch Lý)</strong> vs <strong>Arm B (Kịch Tính Cảnh Báo)</strong>.</p>
+            
+            <div id="ab-result" style="display: none;">
+                <div class="ab-container">
+                    <div class="arm-card">
+                        <span class="arm-badge arm-a">STRATEGY ARM A • CURIOSITY</span>
+                        <h3 id="arm-a-title" style="font-size: 1.1rem; color: #fff; margin-bottom: 0.5rem;">--</h3>
+                        <p style="color: var(--accent-blue); font-size: 0.85rem; font-weight: 600;" id="arm-a-hook">Hook: --</p>
+                        <div class="prompt-box">
+                            <button class="btn-copy" onclick="copyText('arm-a-prompt')">Copy</button>
+                            <div id="arm-a-prompt">--</div>
                         </div>
                     </div>
-                    <span class="badge" id="groq-status-badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(16, 185, 129, 0.3);">
-                        🟢 Sẵn Sàng
-                    </span>
-                </div>
 
-                <!-- GROQ REQUESTS PROGRESS -->
-                <div class="progress-block">
-                    <div class="progress-label-row">
-                        <span class="progress-label">⚡ Số Request Khả Dụng (RPM):</span>
-                        <span class="progress-value-badge" id="groq-req-badge">30 / 30 RPM (100%)</span>
-                    </div>
-                    <div class="progress-bar-bg">
-                        <div class="progress-bar-fill fill-groq-req" id="groq-req-fill" style="width: 100%;"></div>
-                    </div>
-                </div>
-
-                <!-- GROQ TOKENS PROGRESS -->
-                <div class="progress-block">
-                    <div class="progress-label-row">
-                        <span class="progress-label">📊 Ngân Sách Tokens (TPM):</span>
-                        <span class="progress-value-badge" id="groq-tok-badge">6,000 / 6,000 TPM (100%)</span>
-                    </div>
-                    <div class="progress-bar-bg">
-                        <div class="progress-bar-fill fill-groq-tok" id="groq-tok-fill" style="width: 100%;"></div>
-                    </div>
-                </div>
-
-                <!-- GROQ STATS DETAILS -->
-                <div class="quota-stats-grid">
-                    <div class="stat-item">
-                        <span class="stat-label">Tổng Tokens Đã Dùng</span>
-                        <span class="stat-val" id="groq-total-tokens">0 tokens</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Tổng Requests Đã Gọi</span>
-                        <span class="stat-val" id="groq-total-requests">0 calls</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Reset Request Sau</span>
-                        <span class="stat-val" id="groq-reset-req" style="color: #fb923c;">Tức thì</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Reset Tokens Sau</span>
-                        <span class="stat-val" id="groq-reset-tok" style="color: #c084fc;">Tức thì</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- GOOGLE GEMINI & FLOW ENGINE CARD -->
-            <div class="quota-card quota-card-gemini">
-                <div class="quota-card-header">
-                    <div class="quota-title-box">
-                        <div class="quota-icon icon-gemini">🧬</div>
-                        <div>
-                            <div class="quota-name">Google Gemini 3.6 Flash & Flow Studio</div>
-                            <div class="quota-model-sub">AI Prompt Master & Tạo Ảnh Siêu Thực 4K</div>
+                    <div class="arm-card">
+                        <span class="arm-badge arm-b">STRATEGY ARM B • DRAMA & WARNING</span>
+                        <h3 id="arm-b-title" style="font-size: 1.1rem; color: #fff; margin-bottom: 0.5rem;">--</h3>
+                        <p style="color: var(--accent-rose); font-size: 0.85rem; font-weight: 600;" id="arm-b-hook">Hook: --</p>
+                        <div class="prompt-box">
+                            <button class="btn-copy" onclick="copyText('arm-b-prompt')">Copy</button>
+                            <div id="arm-b-prompt">--</div>
                         </div>
                     </div>
-                    <span class="badge" id="gemini-status-badge" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border-color: rgba(59, 130, 246, 0.3);">
-                        🟢 Đang Kết Nối
-                    </span>
                 </div>
-
-                <!-- GEMINI DAILY REQUESTS PROGRESS -->
-                <div class="progress-block">
-                    <div class="progress-label-row">
-                        <span class="progress-label">🧬 Hạn Mức Gọi Ngày (RPD):</span>
-                        <span class="progress-value-badge" id="gemini-rpd-badge">1,500 / 1,500 RPD (100%)</span>
-                    </div>
-                    <div class="progress-bar-bg">
-                        <div class="progress-bar-fill fill-gemini" id="gemini-rpd-fill" style="width: 100%;"></div>
-                    </div>
-                </div>
-
-                <!-- GEMINI STATS DETAILS -->
-                <div class="quota-stats-grid">
-                    <div class="stat-item">
-                        <span class="stat-label">Thời Lượng Xử Lý (Latency)</span>
-                        <span class="stat-val" id="gemini-latency-val" style="color: #38bdf8;">~850 ms</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Ảnh Flow Đã Xuất</span>
-                        <span class="stat-val" id="gemini-flow-images" style="color: #a855f7;">0 ảnh</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Tổng Requests Gemini</span>
-                        <span class="stat-val" id="gemini-total-calls">0 calls</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Lần Sử Dụng Gần Nhất</span>
-                        <span class="stat-val" id="gemini-last-used" style="color: #34d399; font-size: 0.78rem;">Sẵn sàng</span>
-                    </div>
+                <div class="card" style="margin-top: 1.25rem; border-color: rgba(16, 185, 129, 0.4);">
+                    <h4 style="color: var(--accent-green); margin-bottom: 0.25rem;">💡 Đánh Giá Khuyến Nghị Chuyên Gia:</h4>
+                    <p id="ab-rec" style="font-size: 0.9rem; color: #cbd5e1;">--</p>
                 </div>
             </div>
-
-            <!-- YOUTUBE API QUOTA CARD -->
-            <div class="quota-card quota-card-yt">
-                <div class="quota-card-header">
-                    <div class="quota-title-box">
-                        <div class="quota-icon icon-yt">📹</div>
-                        <div>
-                            <div class="quota-name">YouTube Data API v3</div>
-                            <div class="quota-model-sub">Hạn Mức Quét Video & Breakout Hàng Ngày</div>
-                        </div>
-                    </div>
-                    <span class="badge" id="yt-status-badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(16, 185, 129, 0.3);">
-                        🟢 An Toàn
-                    </span>
-                </div>
-
-                <!-- YOUTUBE UNITS PROGRESS -->
-                <div class="progress-block">
-                    <div class="progress-label-row">
-                        <span class="progress-label">📹 Units Khả Dụng Trong Ngày:</span>
-                        <span class="progress-value-badge" id="yt-units-badge">10,000 / 10,000 units (100%)</span>
-                    </div>
-                    <div class="progress-bar-bg">
-                        <div class="progress-bar-fill fill-yt" id="yt-units-fill" style="width: 100%;"></div>
-                    </div>
-                </div>
-
-                <!-- YOUTUBE STATS DETAILS -->
-                <div class="quota-stats-grid">
-                    <div class="stat-item">
-                        <span class="stat-label">Units Đã Tiêu Thụ</span>
-                        <span class="stat-val" id="yt-used-val">0 units</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Hạn Mức Ngày (Quota Limit)</span>
-                        <span class="stat-val">10,000 units</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Thời Gian Reset Tiếp Theo</span>
-                        <span class="stat-val" id="yt-reset-time" style="color: #38bdf8;">14:00 (VN)</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Đếm Ngược Reset</span>
-                        <span class="stat-val" id="yt-countdown" style="color: #fb7185;">Đang tính...</span>
-                    </div>
-                </div>
+            <div id="ab-placeholder" style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
+                Nhập chủ đề ở thanh tìm kiếm và bấm "Chạy A/B Testing Studio" để xem kết quả so sánh đối kháng!
             </div>
         </div>
 
-        <!-- SECTION 2: METRICS SUMMARY -->
-        <div class="metrics-grid">
-            <div class="metric-card">
-                <div class="metric-header">
-                    <span>Tổng Cuộc Trò Chuyện</span>
-                    <span>💬</span>
-                </div>
-                <div class="metric-value" id="stat-total-chats">0</div>
-                <div class="metric-footer" id="stat-unique-users">0 người dùng đã tương tác</div>
-            </div>
-
-            <div class="metric-card">
-                <div class="metric-header">
-                    <span>Server Discord</span>
-                    <span>🛡️</span>
-                </div>
-                <div class="metric-value" style="font-size: 1.25rem;">1031727865567395840</div>
-                <div class="metric-footer">Đồng bộ toàn bộ kênh & DM</div>
-            </div>
-
-            <div class="metric-card">
-                <div class="metric-header">
-                    <span>Trạng Thái Cảnh Báo</span>
-                    <span>🚨</span>
-                </div>
-                <div class="metric-value" style="font-size: 1.3rem; color: #34d399;" id="alert-status-text">Bình Thường (> 20%)</div>
-                <div class="metric-footer">Tự động báo động khi Quota < 20%</div>
+        <!-- TAB 4: SCRIPTS -->
+        <div id="tab-scripts" class="tab-content">
+            <h2 style="font-size: 1.25rem; font-weight: 800; margin-bottom: 1.25rem;">📝 Kho Kịch Bản & Khối Quick Copy</h2>
+            <div id="script-list" style="display: flex; flex-direction: column; gap: 1rem;">
+                <!-- Scripts loaded dynamically -->
             </div>
         </div>
 
-        <!-- SECTION 3: CHAT HISTORY & REPORTS -->
-        <div class="card">
-            <div class="tab-buttons">
-                <button class="tab-btn active" onclick="switchTab('chats')">💬 Lịch Sử Tương Tác Bot (Live)</button>
-                <button class="tab-btn" onclick="switchTab('reports')">📄 File Báo Cáo Chuyên Sâu</button>
-            </div>
-
-            <!-- TAB 1: LIVE CHAT LOGS -->
-            <div id="pane-chats" class="tab-pane active">
-                <div class="card-header">
-                    <div class="card-title">
-                        <span>Lịch Sử Chat Thời Gian Thực</span>
-                        <span class="badge badge-live" style="font-size: 0.7rem;">Auto-sync 3s</span>
-                    </div>
-
-                    <div class="controls-group">
-                        <select id="filter-bot" class="select-filter" onchange="fetchChats()">
-                            <option value="all">👑 Tất Cả 5 Bot</option>
-                            <option value="Orchestrator">👑 Orchestrator Bot</option>
-                            <option value="Market Agent">📊 Market Agent</option>
-                            <option value="News Agent">📰 News Agent</option>
-                            <option value="Thumbnail Agent">🎨 Thumbnail Agent</option>
-                            <option value="Quota Monitor">🛡️ Quota Monitor</option>
-                        </select>
-
-                        <input type="text" id="search-input" class="search-box" placeholder="🔍 Tìm tên, nội dung chat..." oninput="debounceSearch()">
-                        
-                        <button class="btn btn-secondary" onclick="fetchChats()">🔄 Làm Mới</button>
-                    </div>
-                </div>
-
-                <div class="chat-feed" id="chat-container">
-                    <div class="empty-state">Đang tải lịch sử trò chuyện...</div>
-                </div>
-            </div>
-
-            <!-- TAB 2: REPORTS LIST -->
-            <div id="pane-reports" class="tab-pane">
-                <div class="card-header">
-                    <div class="card-title">
-                        <span>Kho Lưu Trữ Báo Cáo Nghiên Cứu Thị Trường (Markdown)</span>
-                    </div>
-                    <button class="btn btn-secondary" onclick="fetchReports()">🔄 Cập Nhật Danh Sách</button>
-                </div>
-                <div class="reports-list" id="reports-container">
-                    <div class="empty-state">Đang tải danh sách báo cáo...</div>
-                </div>
+        <!-- TAB 5: GALLERY -->
+        <div id="tab-gallery" class="tab-content">
+            <h2 style="font-size: 1.25rem; font-weight: 800; margin-bottom: 1.25rem;">🎨 Thư Viện Hình Ảnh 4K & Thumbnail Studio</h2>
+            <div class="gallery-grid" id="gallery-list">
+                <!-- Images loaded dynamically -->
             </div>
         </div>
-    </div>
 
-    <!-- REPORT PREVIEW MODAL -->
-    <div id="report-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="modal-title" style="font-size: 1.1rem; color: #fff;">Xem Báo Cáo</h3>
-                <button class="btn btn-secondary" onclick="closeModal()">✕ Đóng</button>
+        <!-- TAB 6: LIVE CHAT FEED -->
+        <div id="tab-chats" class="tab-content">
+            <h2 style="font-size: 1.25rem; font-weight: 800; margin-bottom: 1.25rem;">💬 Luồng Nhật Ký Discord Real-Time</h2>
+            <div class="chat-feed" id="chat-list">
+                <!-- Chats loaded dynamically -->
             </div>
-            <div class="modal-body" id="modal-body"></div>
         </div>
-    </div>
+    </main>
 
     <script>
-        let searchTimeout = null;
-
-        function debounceSearch() {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(fetchChats, 300);
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+            
+            const target = document.getElementById('tab-' + tabId);
+            if (target) target.classList.add('active');
+            
+            event.target.classList.add('active');
+            if (tabId === 'videos') fetchVideos();
+            if (tabId === 'scripts') fetchScripts();
+            if (tabId === 'gallery') fetchGallery();
+            if (tabId === 'chats') fetchChats();
         }
 
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
-
-            if (tabId === 'chats') {
-                document.querySelectorAll('.tab-btn')[0].classList.add('active');
-                document.getElementById('pane-chats').classList.add('active');
-                fetchChats();
-            } else {
-                document.querySelectorAll('.tab-btn')[1].classList.add('active');
-                document.getElementById('pane-reports').classList.add('active');
-                fetchReports();
-            }
+        function copyText(id) {
+            const text = document.getElementById(id).innerText;
+            navigator.clipboard.writeText(text);
+            alert('Đã copy Prompt vào Clipboard thành công!');
         }
 
         async function fetchStats() {
             try {
                 const res = await fetch('/api/stats');
                 const data = await res.json();
-                const q = data.quota;
-                const c = data.chat_stats;
-                
-                // Cập nhật Groq API Quota
-                document.getElementById('groq-req-badge').innerText = `${q.llm_remaining_requests} / ${q.llm_limit_requests} RPM (${q.llm_requests_pct}%)`;
-                document.getElementById('groq-req-fill').style.width = `${Math.min(100, Math.max(0, q.llm_requests_pct))}%`;
-                
-                document.getElementById('groq-tok-badge').innerText = `${q.llm_remaining_tokens.toLocaleString()} / ${q.llm_limit_tokens.toLocaleString()} TPM (${q.llm_tokens_pct}%)`;
-                document.getElementById('groq-tok-fill').style.width = `${Math.min(100, Math.max(0, q.llm_tokens_pct))}%`;
-                
-                document.getElementById('groq-total-tokens').innerText = `${q.llm_total_tokens.toLocaleString()} tokens`;
-                document.getElementById('groq-total-requests').innerText = `${q.llm_total_requests} calls`;
-                document.getElementById('groq-reset-req').innerText = q.llm_reset_requests;
-                document.getElementById('groq-reset-tok').innerText = q.llm_reset_tokens;
+                const q = data.quota || {};
+                const c = data.chat_stats || {};
 
-                // Cập nhật Google Gemini & Flow Engine
-                if (q.gemini_active) {
-                    document.getElementById('gemini-status-badge').innerText = '🟢 Đang Kết Nối';
-                    document.getElementById('gemini-rpd-badge').innerText = `${q.gemini_remaining.toLocaleString()} / ${q.gemini_daily_limit.toLocaleString()} RPD (${q.gemini_pct_remaining}%)`;
-                    document.getElementById('gemini-rpd-fill').style.width = `${Math.min(100, Math.max(0, q.gemini_pct_remaining))}%`;
-                    document.getElementById('gemini-latency-val').innerText = q.gemini_last_latency_ms > 0 ? `${q.gemini_last_latency_ms} ms (TB: ${q.gemini_avg_latency_ms} ms)` : '~850 ms';
-                    document.getElementById('gemini-flow-images').innerText = `${q.gemini_flow_images_generated} ảnh`;
-                    document.getElementById('gemini-total-calls').innerText = `${q.gemini_total_requests} calls`;
-                    document.getElementById('gemini-last-used').innerText = q.gemini_last_used;
-                } else {
-                    document.getElementById('gemini-status-badge').innerText = '⚪ Chưa Cấu Hình';
+                // Gemini
+                const gUsed = q.gemini_requests_today || 0;
+                const gLimit = q.gemini_daily_limit || 1500;
+                const gPercent = Math.min(100, Math.round((gUsed / gLimit) * 100));
+                document.getElementById('gemini-requests').innerHTML = `${gUsed} <span style="font-size: 1rem; color: var(--text-dim)">/ ${gLimit}</span>`;
+                document.getElementById('gemini-progress').style.width = gPercent + '%';
+                document.getElementById('gemini-desc').innerText = `Còn lại ${gLimit - gUsed} lượt gọi miễn phí hôm nay`;
+
+                // YouTube
+                const yUsed = q.yt_units_today || 0;
+                const yLimit = q.yt_daily_limit || 10000;
+                const yPercent = Math.min(100, Math.round((yUsed / yLimit) * 100));
+                document.getElementById('yt-units').innerHTML = `${yUsed} <span style="font-size: 1rem; color: var(--text-dim)">/ ${yLimit}</span>`;
+                document.getElementById('yt-progress').style.width = yPercent + '%';
+                document.getElementById('yt-desc').innerText = `Đã tiêu hao ${yUsed} / ${yLimit} units`;
+
+                // Latency & Chats
+                document.getElementById('avg-latency').innerText = `${q.gemini_avg_latency_ms || 320} ms`;
+                document.getElementById('total-chats').innerText = c.total_messages || 0;
+            } catch (e) {
+                console.error('Lỗi tải stats:', e);
+            }
+        }
+
+        async function fetchVideos() {
+            try {
+                const res = await fetch('/api/videos');
+                const videos = await res.json();
+                const list = document.getElementById('video-list');
+                if (!videos || videos.length === 0) {
+                    list.innerHTML = '<div style="color: var(--text-muted); padding: 2rem 0;">Chưa có video Shorts nào được xuất. Hãy gõ lệnh <code>/render_video</code> trên Discord để tạo video đầu tiên!</div>';
+                    return;
+                }
+                list.innerHTML = videos.map(v => `
+                    <div class="video-card">
+                        <div class="video-wrapper">
+                            <video src="/api/videos/${encodeURIComponent(v.filename)}" controls playsinline preload="metadata"></video>
+                        </div>
+                        <div class="video-info">
+                            <div class="video-title">${v.filename}</div>
+                            <div class="video-meta">
+                                <span>📦 ${v.size_mb} MB</span>
+                                <span>🕒 ${v.modified_time}</span>
+                            </div>
+                            <a href="/api/videos/${encodeURIComponent(v.filename)}" download class="btn-action" style="margin-top: 0.75rem; text-decoration: none; justify-content: center; font-size: 0.78rem;">⬇️ Tải Video MP4</a>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Lỗi tải videos:', e);
+            }
+        }
+
+        async function fetchScripts() {
+            try {
+                const res = await fetch('/api/reports');
+                const reports = await res.json();
+                const list = document.getElementById('script-list');
+                const scriptReports = reports.filter(r => r.filename.includes('script_') || r.filename.endsWith('.md'));
+                
+                if (scriptReports.length === 0) {
+                    list.innerHTML = '<div style="color: var(--text-muted);">Chưa có file kịch bản nào.</div>';
+                    return;
                 }
 
-                // Cập nhật YouTube API Quota
-                document.getElementById('yt-units-badge').innerText = `${q.yt_remaining.toLocaleString()} / ${q.yt_limit.toLocaleString()} units (${q.yt_pct_remaining.toFixed(1)}%)`;
-                document.getElementById('yt-units-fill').style.width = `${Math.min(100, Math.max(0, q.yt_pct_remaining))}%`;
-                document.getElementById('yt-used-val').innerText = `${q.yt_used.toLocaleString()} units`;
-                document.getElementById('yt-reset-time').innerText = q.yt_reset_time_vn;
-                document.getElementById('yt-countdown').innerText = q.yt_countdown;
+                list.innerHTML = scriptReports.map(r => `
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <h3 style="font-size: 0.95rem; color: #fff;">📄 ${r.filename}</h3>
+                            <span style="font-size: 0.75rem; color: var(--text-dim);">${r.modified_time}</span>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Lỗi tải scripts:', e);
+            }
+        }
 
-                // Cập nhật Chat Stats
-                document.getElementById('stat-total-chats').innerText = c.total_messages.toLocaleString();
-                document.getElementById('stat-unique-users').innerText = `${c.unique_users} người dùng đã tương tác`;
-
-                // Cập nhật Status Alert
-                const isLow = q.yt_pct_remaining <= 20 || q.llm_requests_pct <= 20;
-                const alertEl = document.getElementById('alert-status-text');
-                if (isLow) {
-                    alertEl.innerText = '⚠️ Sắp Hết Quota (< 20%)';
-                    alertEl.style.color = '#f43f5e';
-                } else {
-                    alertEl.innerText = '🟢 Bình Thường (> 20%)';
-                    alertEl.style.color = '#34d399';
+        async function fetchGallery() {
+            try {
+                const res = await fetch('/api/gallery');
+                const images = await res.json();
+                const list = document.getElementById('gallery-list');
+                if (!images || images.length === 0) {
+                    list.innerHTML = '<div style="color: var(--text-muted);">Chưa có ảnh thumbnail nào trong thư viện.</div>';
+                    return;
                 }
-            } catch (err) {
-                console.error("Fetch stats error:", err);
+                list.innerHTML = images.map(img => `
+                    <div class="gallery-item">
+                        <img src="/api/images/${encodeURIComponent(img.filename)}" loading="lazy" alt="Thumbnail">
+                        <div class="gallery-caption">${img.filename}</div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Lỗi tải gallery:', e);
             }
         }
 
         async function fetchChats() {
             try {
-                const botFilter = document.getElementById('filter-bot').value;
-                const search = document.getElementById('search-input').value;
-                
-                const url = `/api/chats?bot=${encodeURIComponent(botFilter)}&search=${encodeURIComponent(search)}`;
-                const res = await fetch(url);
+                const res = await fetch('/api/chats?limit=30');
                 const chats = await res.json();
-
-                const container = document.getElementById('chat-container');
+                const list = document.getElementById('chat-list');
                 if (!chats || chats.length === 0) {
-                    container.innerHTML = '<div class="empty-state">Chưa có dữ liệu trò chuyện nào phù hợp. Hãy thử tag bot trên Discord để bắt đầu!</div>';
+                    list.innerHTML = '<div style="color: var(--text-muted);">Chưa có nhật ký hội thoại.</div>';
                     return;
                 }
-
-                container.innerHTML = chats.map(c => {
-                    const initial = (c.user_name || 'U').charAt(0).toUpperCase();
-                    const isDM = c.context_type === 'DM';
-                    const locationTag = isDM ? '🔒 Tin Nhắn Riêng (DM)' : c.channel_name;
-
-                    return `
-                        <div class="chat-item">
-                            <div class="chat-item-header">
-                                <div class="user-tag-info">
-                                    <div class="user-avatar-badge">${initial}</div>
-                                    <div>
-                                        <div class="user-name-text">@${escapeHtml(c.user_name)}</div>
-                                        <div class="user-id-sub">ID: ${c.user_id}</div>
-                                    </div>
-                                </div>
-                                <div class="chat-badges">
-                                    <span class="badge-channel">${escapeHtml(locationTag)}</span>
-                                    <span class="badge-bot">🤖 ${escapeHtml(c.bot_role || c.bot_name)}</span>
-                                    <span class="chat-time">${c.timestamp}</span>
-                                </div>
-                            </div>
-
-                            <div class="msg-bubble-user">
-                                <strong style="color: var(--accent-blue); font-size: 0.85rem;">👤 Người dùng nhắn:</strong><br>
-                                ${escapeHtml(c.user_message)}
-                            </div>
-
-                            <div class="msg-bubble-bot">
-                                <strong style="color: var(--accent-purple); font-size: 0.85rem;">🤖 ${escapeHtml(c.bot_name)} phản hồi:</strong><br>
-                                ${escapeHtml(c.bot_response)}
-                            </div>
+                list.innerHTML = chats.map(c => `
+                    <div class="chat-msg">
+                        <div class="msg-header">
+                            <span class="bot-tag">${c.bot_name} (${c.bot_role || 'Agent'})</span>
+                            <span>${c.created_at} • ${c.user_name}</span>
                         </div>
-                    `;
-                }).join('');
-            } catch (err) {
-                console.error("Fetch chats error:", err);
-            }
-        }
-
-        async function fetchReports() {
-            try {
-                const res = await fetch('/api/reports');
-                const reports = await res.json();
-
-                const container = document.getElementById('reports-container');
-                if (!reports || reports.length === 0) {
-                    container.innerHTML = '<div class="empty-state">Chưa có file báo cáo nào trong thư mục reports/.</div>';
-                    return;
-                }
-
-                container.innerHTML = reports.map(r => `
-                    <div class="report-card">
-                        <div>
-                            <div class="report-name">📄 ${r.filename}</div>
-                            <div class="report-date">${r.modified_time} • ${(r.size / 1024).toFixed(1)} KB</div>
-                        </div>
-                        <button class="btn btn-secondary" onclick="viewReport('${r.filename}')">👁️ Xem Nội Dung</button>
+                        <div class="msg-text">${c.bot_response || c.user_message}</div>
                     </div>
                 `).join('');
-            } catch (err) {
-                console.error("Fetch reports error:", err);
+            } catch (e) {
+                console.error('Lỗi tải chats:', e);
             }
         }
 
-        async function viewReport(filename) {
+        async function runABTest() {
+            const topic = document.getElementById('quick-topic').value.trim() || 'Vì sao bầu trời có màu xanh';
+            switchTab('ab-testing');
+            document.getElementById('ab-placeholder').innerText = '⏳ Đang phân tích chiến lược và tạo 2 phương án đối kháng...';
+            document.getElementById('ab-result').style.display = 'none';
+
             try {
-                const res = await fetch(`/api/reports/${encodeURIComponent(filename)}`);
+                const res = await fetch(`/api/ab_test?topic=${encodeURIComponent(topic)}`);
                 const data = await res.json();
-                document.getElementById('modal-title').innerText = `📄 ${filename}`;
-                document.getElementById('modal-body').innerText = data.content;
-                document.getElementById('report-modal').classList.add('open');
-            } catch (err) {
-                alert("Không thể tải nội dung báo cáo: " + err);
+                
+                document.getElementById('arm-a-title').innerText = data.arm_a.title_vn;
+                document.getElementById('arm-a-hook').innerText = 'Hook 3s: ' + data.arm_a.hook_3s;
+                document.getElementById('arm-a-prompt').innerText = data.arm_a.thumbnail_prompt;
+
+                document.getElementById('arm-b-title').innerText = data.arm_b.title_vn;
+                document.getElementById('arm-b-hook').innerText = 'Hook 3s: ' + data.arm_b.hook_3s;
+                document.getElementById('arm-b-prompt').innerText = data.arm_b.thumbnail_prompt;
+
+                document.getElementById('ab-rec').innerText = data.recommendation || 'Nên thử nghiệm cả 2 phương án.';
+                
+                document.getElementById('ab-placeholder').style.display = 'none';
+                document.getElementById('ab-result').style.display = 'block';
+            } catch (e) {
+                document.getElementById('ab-placeholder').innerText = '⚠️ Lỗi khi chạy A/B testing: ' + e;
             }
         }
 
-        function closeModal() {
-            document.getElementById('report-modal').classList.remove('open');
-        }
-
-        function escapeHtml(text) {
-            if (!text) return '';
-            const div = document.createElement('div');
-            div.innerText = text;
-            return div.innerHTML;
-        }
-
-        // Tự động polling mỗi 3 giây
+        // Khởi động
         fetchStats();
-        fetchChats();
-        setInterval(() => {
-            fetchStats();
-            fetchChats();
-        }, 3000);
+        setInterval(fetchStats, 5000);
     </script>
 </body>
 </html>
@@ -1238,16 +802,16 @@ def create_dashboard_app() -> web.Application:
         })
 
     async def handle_api_reports(request):
-        reports_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "reports")
-        if not os.path.exists(reports_dir):
+        reports_dir = BASE_DIR / "reports"
+        if not reports_dir.exists():
             return web.json_response([])
         
         files = []
-        for root, _, filenames in os.walk(reports_dir):
+        for root, _, filenames in os.walk(str(reports_dir)):
             for fn in filenames:
                 if fn.endswith(".md"):
                     fp = os.path.join(root, fn)
-                    rel_name = os.path.relpath(fp, reports_dir).replace("\\", "/")
+                    rel_name = os.path.relpath(fp, str(reports_dir)).replace("\\", "/")
                     st = os.stat(fp)
                     files.append({
                         "filename": rel_name,
@@ -1257,21 +821,69 @@ def create_dashboard_app() -> web.Application:
         files.sort(key=lambda x: x["modified_time"], reverse=True)
         return web.json_response(files)
 
-    async def handle_api_report_content(request):
+    async def handle_api_videos(request):
+        videos_dir = BASE_DIR / "reports" / "videos"
+        if not videos_dir.exists():
+            return web.json_response([])
+
+        videos = []
+        for fn in os.listdir(videos_dir):
+            if fn.endswith(".mp4"):
+                fp = videos_dir / fn
+                st = fp.stat()
+                videos.append({
+                    "filename": fn,
+                    "size_mb": round(st.st_size / (1024 * 1024), 2),
+                    "modified_time": datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+                })
+        videos.sort(key=lambda x: x["modified_time"], reverse=True)
+        return web.json_response(videos)
+
+    async def handle_serve_video(request):
         filename = request.match_info.get("filename", "")
-        reports_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "reports")
-        fp = os.path.join(reports_dir, filename)
-        if os.path.exists(fp) and filename.endswith(".md"):
-            with open(fp, "r", encoding="utf-8", errors="ignore") as f:
-                content = f.read()
-            return web.json_response({"content": content})
-        return web.json_response({"error": "File not found"}, status=404)
+        fp = BASE_DIR / "reports" / "videos" / filename
+        if fp.exists() and filename.endswith(".mp4"):
+            return web.FileResponse(fp)
+        return web.json_response({"error": "Video not found"}, status=404)
+
+    async def handle_api_gallery(request):
+        img_dir = BASE_DIR / "reports" / "images"
+        if not img_dir.exists():
+            return web.json_response([])
+
+        images = []
+        for fn in os.listdir(img_dir):
+            if fn.endswith((".png", ".jpg", ".webp")):
+                fp = img_dir / fn
+                st = fp.stat()
+                images.append({
+                    "filename": fn,
+                    "modified_time": datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+                })
+        images.sort(key=lambda x: x["modified_time"], reverse=True)
+        return web.json_response(images)
+
+    async def handle_serve_image(request):
+        filename = request.match_info.get("filename", "")
+        fp = BASE_DIR / "reports" / "images" / filename
+        if fp.exists() and filename.endswith((".png", ".jpg", ".webp")):
+            return web.FileResponse(fp)
+        return web.json_response({"error": "Image not found"}, status=404)
+
+    async def handle_api_ab_test(request):
+        topic = request.query.get("topic", "Hiện tượng sấm sét").strip()
+        data = await growth_experiments.generate_ab_experiment(topic)
+        return web.json_response(data)
 
     app.router.add_get("/", handle_index)
     app.router.add_get("/api/chats", handle_api_chats)
     app.router.add_get("/api/stats", handle_api_stats)
     app.router.add_get("/api/reports", handle_api_reports)
-    app.router.add_get("/api/reports/{filename:.+}", handle_api_report_content)
+    app.router.add_get("/api/videos", handle_api_videos)
+    app.router.add_get("/api/videos/{filename}", handle_serve_video)
+    app.router.add_get("/api/gallery", handle_api_gallery)
+    app.router.add_get("/api/images/{filename}", handle_serve_image)
+    app.router.add_get("/api/ab_test", handle_api_ab_test)
 
     return app
 
