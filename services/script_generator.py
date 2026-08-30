@@ -64,9 +64,32 @@ Bạn là Chuyên Gia Biên Kịch & Đạo Diễn AI Video hàng đầu thế g
 Nhiệm vụ của bạn là dựa vào xu hướng các kênh đang hot và kênh đang lên để viết một BẢN KỊCH BẢN CHI TIẾT KÈM PROMPT AI TỪNG PHÂN CẢNH để người dùng có thể làm theo và tạo video ngay lập tức.
 
 ĐỊNH DẠNG VIDEO YÊU CẦU: {format_type}
-CHỦ ĐỀ: {topic}
+CHỦ ĐỀ CHÍNH XÁC: {topic}
 
-CẤU TRÚC KỊCH BẢN BẮT BUỘC (Trình bày bằng Markdown chuyên nghiệp):
+QUY TẮC BẮT BUỘC VỀ BỐ CỤC:
+1. Ở ĐẦU BẢN KỊCH BẢN, BẮT BUỘC PHẢI CÓ MỘT KHỐI "⚡ QUICK COPY — CÁC PROMPT DÙNG NGAY" TRÌNH BÀY THUẦN PROMPT ANH (1 DÒNG CHO ẢNH, 1 DÒNG CHO VIDEO) ĐỂ NGƯỜI DÙNG BẤM COPY 1 CHẠM LÀ DÙNG ĐƯỢC NGAY TRÊN ĐIỆN THOẠI/PC.
+2. CẤU TRÚC KỂ CHUYỆN: Cấu trúc 4 bước (Hiện tượng -> Thử nghiệm -> Giải thích vi mô -> Bài học & CTA) là KHUNG THAM KHẢO LINH HOẠT. Bạn ĐƯỢC PHÉP ĐIỀU CHỈNH số lượng phân cảnh (từ 3 đến 5 cảnh) hoặc mạch diễn giải nếu chủ đề cụ thể (như so sánh 2 hiện tượng, giải mã bí ẩn, thí nghiệm giả định...) phù hợp với cách kể chuyện khác lôi cuốn và giữ chân người xem hiệu quả hơn.
+3. BẮT BUỘC: Hook đầu video 3s cực mạnh + Có Prompt Tạo Ảnh (Midjourney/Flux) & Prompt Tạo Video (Runway/Kling) chuẩn điện ảnh cho từng cảnh + Lời thoại Voiceover VN cuốn hút + CTA tương tác cuối video + Nguồn bài báo khoa học uy tín.
+
+BẢN MẪU ĐỊNH DẠNG MARKDOWN CHUẨN:
+
+# ⚡ QUICK COPY — CÁC PROMPT DÙNG NGAY
+```text
+🎨 Ảnh Cảnh 1: [Prompt tiếng Anh thuần 1 dòng cho Midjourney/Flux]
+🎬 Video Cảnh 1: [Prompt tiếng Anh thuần 1 dòng cho Runway/Kling]
+
+🎨 Ảnh Cảnh 2: [Prompt tiếng Anh thuần 1 dòng cho Midjourney/Flux]
+🎬 Video Cảnh 2: [Prompt tiếng Anh thuần 1 dòng cho Runway/Kling]
+
+🎨 Ảnh Cảnh 3: [Prompt tiếng Anh thuần 1 dòng cho Midjourney/Flux]
+🎬 Video Cảnh 3: [Prompt tiếng Anh thuần 1 dòng cho Runway/Kling]
+
+🎨 Ảnh Cảnh 4: [Prompt tiếng Anh thuần 1 dòng cho Midjourney/Flux]
+🎬 Video Cảnh 4: [Prompt tiếng Anh thuần 1 dòng cho Runway/Kling]
+```
+
+---
+
 # 🎬 [TIÊU ĐỀ VIDEO ĐỀ XUẤT - BẮT TREND & TỶ LỆ CLICK CAO]
 - **Định dạng:** {format_type}
 - **Tone Giọng (Voiceover):** Bí ẩn, kịch tính, lôi cuốn, trầm ấm, chuẩn ElevenLabs.
@@ -75,33 +98,33 @@ CẤU TRÚC KỊCH BẢN BẮT BUỘC (Trình bày bằng Markdown chuyên nghi�
 ---
 
 ## 📊 BÓC TÁCH CÔNG THỨC VIRAL TỪ THỊ TRƯỜNG
-- Điểm mấu chốt khiến chủ đề này đang hot.
+- Điểm mấu chốt khiến chủ đề này đang hot trên YouTube.
 - Góc tiếp cận độc lạ áp dụng cho video này.
 
 ---
 
-## 📝 KỊCH BẢN CHI TIẾT THEO CÔNG THỨC 4 BƯỚC THỰC CHIẾN
+## 📝 KỊCH BẢN CHI TIẾT TỪNG PHÂN CẢNH
 
-### 📍 PHÂN CẢNH 1: [0:00 - 0:10] | 🌟 HIỆN TƯỢNG KỲ LẠ QUANH TA (Hook Gây Tò Mò)
-- 🗣️ **Lời thoại (Voiceover VN):** (Mô tả một hiện tượng đời sống quen thuộc nhưng kỳ lạ, kích thích sự tò mò ngay giây đầu)
-- 🎨 **Prompt Tạo Ảnh (Midjourney v6 / Flux):** `(Prompt tiếng Anh chi tiết, phong cách 8k hyperrealistic scientific illustration, dramatic cinematic lighting --ar 16:9 hoặc 9:16)`
+### 📍 PHÂN CẢNH 1: [0:00 - 0:10] | 🌟 HOOK MỞ ĐẦU (Gây Tò Mò Cực Độ)
+- 🗣️ **Lời thoại (Voiceover VN):** (Câu nói giật tò mò, chỉ ra hiện tượng quen thuộc nhưng khó tin)
+- 🎨 **Prompt Tạo Ảnh (Midjourney v6 / Flux):** `(Prompt tiếng Anh chi tiết, 8k hyperrealistic scientific illustration, dramatic cinematic lighting)`
 - 🎬 **Prompt Tạo Video (Runway Gen-3 / Pika / Kling AI):** `(Prompt chuyển động camera, slow motion, macro zoom cận cảnh hiện tượng)`
-- 🔊 **Âm thanh / SFX:** (Mô tả hiệu ứng âm thanh kích thích thính giác)
+- 🔊 **Âm thanh / SFX:** (Mô tả hiệu ứng âm thanh)
 
-### 📍 PHÂN CẢNH 2: [0:10 - 0:25] | 🧪 THỬ NGHIỆM THỰC TẾ (The Experiment / Test)
-- 🗣️ **Lời thoại (Voiceover VN):** (Thực hiện một thử nghiệm / thí nghiệm trực quan dễ hình dung để tái hiện hoặc kiểm chứng hiện tượng)
-- 🎨 **Prompt Tạo Ảnh (Midjourney / Flux):** `(Prompt hình ảnh thí nghiệm, mặt cắt 3D hoặc tương phản trước/sau)`
+### 📍 PHÂN CẢNH 2: [0:10 - 0:25] | 🧪 THỬ NGHIỆM / DIỄN TIẾN TRỰC QUAN
+- 🗣️ **Lời thoại (Voiceover VN):** (Tái hiện thí nghiệm / diễn biến hiện tượng trực quan)
+- 🎨 **Prompt Tạo Ảnh (Midjourney / Flux):** ...
 - 🎬 **Prompt Tạo Video (Runway / Pika):** ...
 - 🔊 **Âm thanh / SFX:** ...
 
-### 📍 PHÂN CẢNH 3: [0:25 - 0:50] | ⚡ GIẢI THÍCH KHOA HỌC SÂU (The Science Behind It)
-- 🗣️ **Lời thoại (Voiceover VN):** (Giải thích bản chất vật lý, hóa học, sinh học bằng ngôn ngữ bình dân, dễ hiểu, dùng hình tượng so sánh)
-- 🎨 **Prompt Tạo Ảnh (Midjourney / Flux):** `(Prompt minh họa cơ chế vi mô, cấu trúc tế bào / phân tử / tia điện / áp suất)`
+### 📍 PHÂN CẢNH 3: [0:25 - 0:50] | ⚡ GIẢI MÃ BẢN CHẤT KHOA HỌC SÂU
+- 🗣️ **Lời thoại (Voiceover VN):** (Giải thích cơ chế vật lý / vi mô bằng hình tượng dễ hiểu)
+- 🎨 **Prompt Tạo Ảnh (Midjourney / Flux):** ...
 - 🎬 **Prompt Tạo Video (Runway / Pika):** ...
 - 🔊 **Âm thanh / SFX:** ...
 
-### 📍 PHÂN CẢNH 4: [0:50 - 1:00] | 💡 BÀI HỌC & ỨNG DỤNG ĐỜI SỐNG + KÊU GỌI (CTA)
-- 🗣️ **Lời thoại (Voiceover VN):** (Rút ra bài học thực tế trong cuộc sống hàng ngày hoặc ứng dụng khoa học hữu ích + câu hỏi tương tác)
+### 📍 PHÂN CẢNH 4: [0:50 - 1:00] | 💡 BÀI HỌC THỰC TẾ & KÊU GỌI TƯƠNG TÁC (CTA)
+- 🗣️ **Lời thoại (Voiceover VN):** (Ứng dụng đời sống + Đặt câu hỏi kích thích bình luận)
 - 🎨 **Prompt Tạo Ảnh (Midjourney / Flux):** ...
 - 🎬 **Prompt Tạo Video (Runway / Pika):** ...
 - 🔊 **Âm thanh / SFX:** ...
@@ -120,7 +143,7 @@ CẤU TRÚC KỊCH BẢN BẮT BUỘC (Trình bày bằng Markdown chuyên nghi�
 3. ...
 """
 
-        user_content = f"{market_context_str}\n\nHãy tạo bản kịch bản hoàn chỉnh kèm bộ prompt AI chi tiết cho chủ đề: '{topic}'."
+        user_content = f"{market_context_str}\n\nHãy tạo bản kịch bản hoàn chỉnh kèm khối Quick Copy ở đầu và bộ prompt AI chi tiết cho chủ đề: '{topic}'."
         if custom_instructions:
             user_content += f"\nYêu cầu thêm: {custom_instructions}"
 
@@ -133,9 +156,12 @@ CẤU TRÚC KỊCH BẢN BẮT BUỘC (Trình bày bằng Markdown chuyên nghi�
             max_tokens=4096
         )
 
-        script_markdown = strip_think_tags(llm_res.get("content", "# Kịch bản video vũ trụ"))
+        script_markdown = strip_think_tags(llm_res.get("content", "# Kịch bản video khoa học"))
         
-        # 3. Lưu file Markdown
+        # 3. Trích xuất khối Quick Copy riêng để gửi Discord
+        quick_copy_text = self.extract_quick_copy(script_markdown)
+
+        # 4. Lưu file Markdown
         clean_topic_slug = re.sub(r'[^a-zA-Z0-9_-]', '_', topic)[:30]
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"script_{clean_topic_slug}_{timestamp}.md"
@@ -151,8 +177,28 @@ CẤU TRÚC KỊCH BẢN BẮT BUỘC (Trình bày bằng Markdown chuyên nghi�
             "filename": filename,
             "filepath": str(filepath),
             "script_content": script_markdown,
+            "quick_copy": quick_copy_text,
             "hot_videos_analyzed": len(hot_videos),
             "breakout_videos_analyzed": len(breakout_videos)
         }
+
+    @staticmethod
+    def extract_quick_copy(script_text: str) -> str:
+        """
+        Trích xuất phần QUICK COPY từ đầu kịch bản để gửi riêng dạng code block 1 chạm trên Discord.
+        """
+        match = re.search(r"#+\s*⚡\s*QUICK COPY[^\n]*\n+```(?:text)?\n([\s\S]*?)```", script_text, re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+        
+        # Fallback: Quét các dòng prompt ảnh và video nếu không tìm thấy khối
+        prompts = []
+        for line in script_text.splitlines():
+            line_str = line.strip()
+            if "Prompt Tạo Ảnh" in line_str or "Prompt Tạo Video" in line_str or "🎨" in line_str or "🎬" in line_str:
+                prompts.append(line_str)
+        if prompts:
+            return "\n".join(prompts[:10])
+        return "Xem toàn bộ prompt chi tiết trong file kịch bản đính kèm bên dưới."
 
 script_generator = ScriptGenerator()

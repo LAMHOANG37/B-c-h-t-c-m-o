@@ -563,16 +563,27 @@ async def execute_script_generation(initiator_user: discord.User, channel, topic
                 format_type=format_type
             )
             
+            # 1. Gửi khối Quick Copy trong Embed / Code block riêng biệt để 1 chạm copy ngay trên điện thoại & PC
+            quick_copy_text = res.get("quick_copy") or script_generator.extract_quick_copy(res["script_content"])
+            quick_copy_embed = discord.Embed(
+                title=f"⚡ QUICK COPY — PROMPT DÙNG NGAY ({clean_topic[:35]})",
+                description=f"```text\n{quick_copy_text}\n```",
+                color=0x00FFCC
+            )
+            quick_copy_embed.set_footer(text="💡 Chạm 1 lần vào khung trên để copy toàn bộ prompt ảnh & video!")
+            await channel.send(embed=quick_copy_embed)
+
+            # 2. Gửi file kịch bản Markdown chi tiết đầy đủ
             script_file = discord.File(res["filepath"], filename=res["filename"])
             embed = discord.Embed(
-                title=f"🎬 KỊCH BẢN 4 BƯỚC & PROMPT AI: {clean_topic[:45]}",
+                title=f"🎬 KỊCH BẢN CHI TIẾT & PROMPT AI: {clean_topic[:45]}",
                 description=f"📐 **Định dạng:** `{res['format']}`\n"
                             f"📊 **Dữ liệu phân tích:** `{res['hot_videos_analyzed']}` video top views & `{res['breakout_videos_analyzed']}` video bứt phá\n\n"
-                            f"🎯 **Cấu trúc 4 Bước Vàng:**\n"
-                            f"• 🌟 **Bước 1:** Hiện tượng đời sống quanh ta (Hook 10s)\n"
-                            f"• 🧪 **Bước 2:** Thử nghiệm / Thí nghiệm thực tế trực quan\n"
-                            f"• ⚡ **Bước 3:** Giải thích khoa học sâu + Dẫn chứng bài báo uy tín\n"
-                            f"• 💡 **Bước 4:** Bài học đời sống & Kêu gọi hành động CTA\n\n"
+                            f"🎯 **Cấu trúc Kịch Bản:**\n"
+                            f"• 🌟 **Mở đầu (Hook 3s):** Hiện tượng bất ngờ gây tò mò cực độ\n"
+                            f"• 🧪 **Thử nghiệm / Diễn tiến:** Tái hiện trực quan dễ hình dung\n"
+                            f"• ⚡ **Giải thích khoa học sâu:** Cơ chế vi mô + Dẫn nguồn nghiên cứu uy tín\n"
+                            f"• 💡 **Ứng dụng & CTA:** Bài học đời sống + Câu hỏi kích thích bình luận\n\n"
                             f"💡 *File Kịch bản chi tiết + Lời thoại Voiceover + Prompt Runway/Midjourney từng cảnh đã đính kèm bên dưới!*",
                 color=COLOR_MARKET
             )
@@ -593,7 +604,7 @@ async def execute_script_generation(initiator_user: discord.User, channel, topic
                 bot_name="Market Agent",
                 bot_role="Biên Kịch AI",
                 user_message=f"Tạo kịch bản: {topic}",
-                bot_response=f"🎬 Đã xuất kịch bản 4 bước & bộ Prompt AI ({res['format']}): {res['filename']}"
+                bot_response=f"🎬 Đã xuất kịch bản & khối Quick Copy ({res['format']}): {res['filename']}"
             )
 
             # Nếu yêu cầu có nhắc tới "hình ảnh" hoặc "vẽ ảnh", tự động xuất luôn 1 ảnh minh họa 4K
@@ -676,12 +687,14 @@ async def execute_image_generation(initiator_user: discord.User, channel, prompt
     if not clean_idea:
         clean_idea = f"Hiện tượng khoa học kỳ thú trong {NICHE_TOPIC}"
 
-    loading_msg = await channel.send(f"🎨✨ **[Thumbnail Agent Flow]**: Đang tối ưu Prompt & tự vẽ ảnh 4K cho `{clean_idea[:60]}`... ⏳")
+    loading_msg = await channel.send(f"🎨✨ **[Thumbnail Agent Flow]**: Đang tối ưu Prompt bám sát chủ đề & tự vẽ ảnh 4K cho `{clean_idea[:60]}`... ⏳")
     
     try:
         async with channel.typing():
             res = await image_service.generate_image(
                 prompt_or_idea=clean_idea,
+                topic=clean_idea,
+                scientific_details=f"specific scientific visual characteristics, microscopic physics or natural dynamics of {clean_idea}",
                 style=style,
                 width=width,
                 height=height,
@@ -695,7 +708,7 @@ async def execute_image_generation(initiator_user: discord.User, channel, prompt
             embed = discord.Embed(
                 title=f"🎨 ẢNH THUMBNAIL / MINH HỌA: {res['title'][:50]}",
                 description=f"🤖 **Flow Engine:** `{res['provider']}` | 📐 **Tỷ lệ:** `{aspect_ratio}`\n\n"
-                            f"📝 **Prompt AI Đã Tối Ưu:**\n```{res['prompt']}```\n"
+                            f"📝 **Prompt AI Đã Tối Ưu (Đã Self-Check Khớp Chủ Đề):**\n```{res['prompt']}```\n"
                             f"💡 *Đại ca có thể copy prompt trên để tái sử dụng trên Midjourney v6 hoặc Flux bất cứ lúc nào!*",
                 color=COLOR_THUMBNAIL
             )

@@ -286,6 +286,8 @@ CTR Formulas: {json.dumps(ctr_formulas, ensure_ascii=False)}
 
             report_filepath.write_text(report_md_content, encoding="utf-8")
 
+            top_recommended_topic = hot_topics[0] if hot_topics else active_niche
+
             # Giao diện Báo Cáo Tinh Gọn, Thoáng & Đẳng Cấp
             summary_embed = discord.Embed(
                 title=f"🏆 BÁO CÁO CHIẾN LƯỢC: NICHE {NICHE_TOPIC.upper()}",
@@ -296,6 +298,12 @@ CTR Formulas: {json.dumps(ctr_formulas, ensure_ascii=False)}
                             f"• **Tối ưu CTR:** Phối màu tương phản cao (Vàng Neon / Xanh Điện) + Text ngắn dưới 3 từ.\n\n"
                             f"💡 *Toàn bộ phân tích chuyên sâu đã được đính kèm trong file bên dưới!*",
                 color=COLOR_ORCHESTRATOR
+            )
+            summary_embed.add_field(
+                name="💡 ĐỀ XUẤT HÀNH ĐỘNG TIẾP THEO",
+                value=f"Chủ đề **\"{top_recommended_topic}\"** đạt **{score_data['tier']}**, tiềm năng bứt phá view rất cao!\n"
+                      f"👉 Gõ: `/kichban topic:\"{top_recommended_topic}\"` để em lên ngay kịch bản chi tiết & bộ Prompt AI nhé!",
+                inline=False
             )
             summary_embed.set_footer(text=f"AI 4 AI Strategy • File: {report_filename}")
 
@@ -316,7 +324,8 @@ CTR Formulas: {json.dumps(ctr_formulas, ensure_ascii=False)}
                     with open(report_filepath, "rb") as f:
                         dm_file = discord.File(f, filename=report_filename)
                         await recipient.send(
-                            content=f"👋 **Báo cáo nghiên cứu chiến lược YouTube: `{active_niche}`** (Dành riêng cho <@{recipient.id}>)",
+                            content=f"👋 **Báo cáo nghiên cứu chiến lược YouTube: `{active_niche}`** (Dành riêng cho <@{recipient.id}>)\n"
+                                    f"💡 *Đề xuất hôm nay:* Chủ đề **\"{top_recommended_topic}\"** đang có chỉ số rất tốt. Đại ca gõ `/kichban topic:\"{top_recommended_topic}\"` nếu muốn xuất kịch bản sản xuất ngay nhé!",
                             embed=summary_embed,
                             file=dm_file
                         )
